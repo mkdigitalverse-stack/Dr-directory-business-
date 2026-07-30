@@ -1,0 +1,6 @@
+{
+  "name": "Healthcare Directory Platform",
+  "description": "A premium, modern healthcare directory and discovery platform for Lucknow and other cities in India.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
