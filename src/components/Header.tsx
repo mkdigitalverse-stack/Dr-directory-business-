@@ -27,7 +27,10 @@ export default function Header({
   onOpenAddListing
 }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isFindDropdownOpen, setIsFindDropdownOpen] = useState(false);
   const [isSpecialtyDropdownOpen, setIsSpecialtyDropdownOpen] = useState(false);
+  const [isMobileFindOpen, setIsMobileFindOpen] = useState(false);
+  const [isMobileSpecialistOpen, setIsMobileSpecialistOpen] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -38,7 +41,18 @@ export default function Header({
 
   const handleCategoryNav = (type: ProviderType) => {
     onSelectCategory(type);
+    setIsFindDropdownOpen(false);
     setIsMobileMenuOpen(false);
+  };
+
+  const handleBlogClick = () => {
+    handleNav("home");
+    setTimeout(() => {
+      const el = document.getElementById("health-knowledge");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 100);
   };
 
   return (
@@ -175,55 +189,90 @@ export default function Header({
             </button>
 
             <button
-              onClick={() => handleCategoryNav(ProviderType.DOCTOR)}
-              className="font-sans text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-teal-600 transition-colors cursor-pointer"
+              onClick={() => handleNav("about")}
+              className={`font-sans text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
+                activeView === "about" ? "text-teal-600 border-b-2 border-teal-600 pb-1 mt-1" : "text-slate-600 hover:text-teal-600"
+              }`}
             >
-              Find Doctors
+              About
             </button>
 
-            <button
-              onClick={() => handleCategoryNav(ProviderType.CLINIC)}
-              className="font-sans text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-teal-600 transition-colors cursor-pointer"
-            >
-              Clinics
-            </button>
-
-            <button
-              onClick={() => handleCategoryNav(ProviderType.HOSPITAL)}
-              className="font-sans text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-teal-600 transition-colors cursor-pointer"
-            >
-              Hospitals
-            </button>
-
-            <button
-              onClick={() => handleCategoryNav(ProviderType.LAB)}
-              className="font-sans text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-teal-600 transition-colors cursor-pointer"
-            >
-              Diagnostics
-            </button>
-
-            {/* Specialty Dropdown */}
+            {/* Find Dropdown */}
             <div className="relative">
               <button
-                onClick={() => setIsSpecialtyDropdownOpen(!isSpecialtyDropdownOpen)}
+                onClick={() => {
+                  setIsFindDropdownOpen(!isFindDropdownOpen);
+                  setIsSpecialtyDropdownOpen(false);
+                }}
                 className="font-sans text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-teal-600 transition-colors flex items-center gap-1 cursor-pointer"
               >
-                Specialties
+                Find
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+              {isFindDropdownOpen && (
+                <div 
+                  id="find-dropdown"
+                  className="absolute left-0 mt-3 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+                >
+                  <button
+                    onClick={() => handleCategoryNav(ProviderType.DOCTOR)}
+                    className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-teal-50 hover:text-teal-600 font-sans cursor-pointer flex items-center gap-2"
+                  >
+                    👨‍⚕️ Doctors
+                  </button>
+                  <button
+                    onClick={() => handleCategoryNav(ProviderType.CLINIC)}
+                    className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-teal-50 hover:text-teal-600 font-sans cursor-pointer flex items-center gap-2"
+                  >
+                    🏢 Clinic
+                  </button>
+                  <button
+                    onClick={() => handleCategoryNav(ProviderType.HOSPITAL)}
+                    className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-teal-50 hover:text-teal-600 font-sans cursor-pointer flex items-center gap-2"
+                  >
+                    🏥 Hospitals
+                  </button>
+                  <button
+                    onClick={() => handleCategoryNav(ProviderType.LAB)}
+                    className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-teal-50 hover:text-teal-600 font-sans cursor-pointer flex items-center gap-2"
+                  >
+                    🔬 Diagnostics
+                  </button>
+                  <button
+                    onClick={() => handleCategoryNav(ProviderType.LAB)}
+                    className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-teal-50 hover:text-teal-600 font-sans cursor-pointer flex items-center gap-2"
+                  >
+                    🧪 Pathologies
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Specialist Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setIsSpecialtyDropdownOpen(!isSpecialtyDropdownOpen);
+                  setIsFindDropdownOpen(false);
+                }}
+                className="font-sans text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-teal-600 transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                Specialist
                 <ChevronDown className="h-3.5 w-3.5" />
               </button>
               {isSpecialtyDropdownOpen && (
                 <div 
                   id="specialty-dropdown"
-                  className="absolute right-0 mt-3 w-52 bg-white border border-slate-200 rounded-lg shadow-md py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+                  className="absolute left-0 mt-3 w-52 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 max-h-64 overflow-y-auto"
                 >
-                  {["Cardiology", "Dentistry", "Gynecology", "Orthopedics", "Dermatology"].map((spec) => (
+                  {["Cardiology", "Dentistry", "Gynecology", "Orthopedics", "Dermatology", "Pediatrics", "Neurology", "General Medicine"].map((spec) => (
                     <button
                       key={spec}
                       onClick={() => {
                         onSearchSpecialty(spec);
                         setIsSpecialtyDropdownOpen(false);
                       }}
-                      className="w-full text-left px-4 py-1.5 text-xs text-slate-700 hover:bg-slate-50 hover:text-teal-600 transition-all font-sans cursor-pointer"
+                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-teal-50 hover:text-teal-600 transition-all font-sans cursor-pointer"
                     >
                       {spec}
                     </button>
@@ -232,13 +281,12 @@ export default function Header({
               )}
             </div>
 
+            {/* Blog Button */}
             <button
-              onClick={() => handleNav("about")}
-              className={`font-sans text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
-                activeView === "about" ? "text-teal-600" : "text-slate-600 hover:text-teal-600"
-              }`}
+              onClick={handleBlogClick}
+              className="font-sans text-xs font-semibold uppercase tracking-wider text-slate-600 hover:text-teal-600 transition-colors cursor-pointer"
             >
-              About
+              Blog
             </button>
           </nav>
 
@@ -291,7 +339,7 @@ export default function Header({
       {isMobileMenuOpen && (
         <div 
           id="mobile-drawer"
-          className="lg:hidden border-t border-slate-200 bg-white/98 backdrop-blur-md px-4 pt-1.5 pb-4 space-y-1.5 animate-in slide-in-from-top duration-200"
+          className="lg:hidden border-t border-slate-200 bg-white/98 backdrop-blur-md px-4 pt-2 pb-4 space-y-2 animate-in slide-in-from-top duration-200 max-h-[85vh] overflow-y-auto"
         >
           <button
             onClick={() => handleNav("home")}
@@ -299,36 +347,96 @@ export default function Header({
           >
             Home
           </button>
-          <button
-            onClick={() => handleCategoryNav(ProviderType.DOCTOR)}
-            className="w-full text-left py-2 px-3 rounded-lg text-slate-700 hover:bg-teal-50 hover:text-teal-600 font-semibold text-xs transition-all"
-          >
-            Find Doctors
-          </button>
-          <button
-            onClick={() => handleCategoryNav(ProviderType.CLINIC)}
-            className="w-full text-left py-2 px-3 rounded-lg text-slate-700 hover:bg-teal-50 hover:text-teal-600 font-semibold text-xs transition-all"
-          >
-            Clinics
-          </button>
-          <button
-            onClick={() => handleCategoryNav(ProviderType.HOSPITAL)}
-            className="w-full text-left py-2 px-3 rounded-lg text-slate-700 hover:bg-teal-50 hover:text-teal-600 font-semibold text-xs transition-all"
-          >
-            Hospitals
-          </button>
-          <button
-            onClick={() => handleCategoryNav(ProviderType.LAB)}
-            className="w-full text-left py-2 px-3 rounded-lg text-slate-700 hover:bg-teal-50 hover:text-teal-600 font-semibold text-xs transition-all"
-          >
-            Diagnostic Labs
-          </button>
+
           <button
             onClick={() => handleNav("about")}
             className="w-full text-left py-2 px-3 rounded-lg text-slate-700 hover:bg-teal-50 hover:text-teal-600 font-semibold text-xs transition-all"
           >
             About
           </button>
+
+          {/* Mobile Find Collapsible */}
+          <div>
+            <button
+              onClick={() => setIsMobileFindOpen(!isMobileFindOpen)}
+              className="w-full text-left py-2 px-3 rounded-lg text-slate-700 hover:bg-teal-50 hover:text-teal-600 font-semibold text-xs transition-all flex items-center justify-between"
+            >
+              <span>Find</span>
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isMobileFindOpen ? "rotate-180" : ""}`} />
+            </button>
+            {isMobileFindOpen && (
+              <div className="pl-4 py-1 space-y-1 bg-slate-50/60 rounded-lg my-1">
+                <button
+                  onClick={() => handleCategoryNav(ProviderType.DOCTOR)}
+                  className="w-full text-left py-1.5 px-3 text-slate-600 hover:text-teal-600 text-xs flex items-center gap-2"
+                >
+                  👨‍⚕️ Doctors
+                </button>
+                <button
+                  onClick={() => handleCategoryNav(ProviderType.CLINIC)}
+                  className="w-full text-left py-1.5 px-3 text-slate-600 hover:text-teal-600 text-xs flex items-center gap-2"
+                >
+                  🏢 Clinic
+                </button>
+                <button
+                  onClick={() => handleCategoryNav(ProviderType.HOSPITAL)}
+                  className="w-full text-left py-1.5 px-3 text-slate-600 hover:text-teal-600 text-xs flex items-center gap-2"
+                >
+                  🏥 Hospitals
+                </button>
+                <button
+                  onClick={() => handleCategoryNav(ProviderType.LAB)}
+                  className="w-full text-left py-1.5 px-3 text-slate-600 hover:text-teal-600 text-xs flex items-center gap-2"
+                >
+                  🔬 Diagnostics
+                </button>
+                <button
+                  onClick={() => handleCategoryNav(ProviderType.LAB)}
+                  className="w-full text-left py-1.5 px-3 text-slate-600 hover:text-teal-600 text-xs flex items-center gap-2"
+                >
+                  🧪 Pathologies
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Specialist Collapsible */}
+          <div>
+            <button
+              onClick={() => setIsMobileSpecialistOpen(!isMobileSpecialistOpen)}
+              className="w-full text-left py-2 px-3 rounded-lg text-slate-700 hover:bg-teal-50 hover:text-teal-600 font-semibold text-xs transition-all flex items-center justify-between"
+            >
+              <span>Specialist</span>
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isMobileSpecialistOpen ? "rotate-180" : ""}`} />
+            </button>
+            {isMobileSpecialistOpen && (
+              <div className="pl-4 py-1 space-y-1 bg-slate-50/60 rounded-lg my-1">
+                {["Cardiology", "Dentistry", "Gynecology", "Orthopedics", "Dermatology", "Pediatrics", "Neurology"].map((spec) => (
+                  <button
+                    key={spec}
+                    onClick={() => {
+                      onSearchSpecialty(spec);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left py-1.5 px-3 text-slate-600 hover:text-teal-600 text-xs"
+                  >
+                    {spec}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              handleBlogClick();
+            }}
+            className="w-full text-left py-2 px-3 rounded-lg text-slate-700 hover:bg-teal-50 hover:text-teal-600 font-semibold text-xs transition-all"
+          >
+            Blog
+          </button>
+
           <button
             onClick={() => {
               setIsMobileMenuOpen(false);
@@ -339,6 +447,7 @@ export default function Header({
             <User className="h-3.5 w-3.5" />
             Provider Portal
           </button>
+
           <div className="pt-2 border-t border-slate-100">
             <button
               onClick={() => {

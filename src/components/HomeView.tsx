@@ -18,8 +18,6 @@ import {
 } from "lucide-react";
 import { Provider, ProviderType, HealthPackage, Article, ViewState, SearchParams } from "../types";
 import { CategoryAdSlider, SPECIALTY_ADS, DOCTOR_ADS, CLINIC_ADS, HOSPITAL_ADS, LAB_ADS, LOCALITY_ADS } from "./CategoryAdSlider";
-import TrendingHealthTips from "./TrendingHealthTips";
-import TrustAndVerificationSeals from "./TrustAndVerificationSeals";
 import MedicalAvatar from "./MedicalAvatar";
 
 interface HomeViewProps {
@@ -812,6 +810,30 @@ export default function HomeView({
         </div>
       </section>
 
+      {/* SECTION 6: TRUST & AUTHORITY BAR (FEATURES SECTION) */}
+      <section id="trust-bar" className="bg-[#f4f7f5] py-10 px-4 sm:px-6 lg:px-8 border-b border-slate-200/50">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {[
+              { label: "Verified Providers", desc: "Double NMC Cross Check", icon: "🛡️" },
+              { label: "Verified Reviews", desc: "Genuine Patient Feedback", icon: "⭐" },
+              { label: "Secure Booking", desc: "Patient Record Encryption", icon: "🔒" },
+              { label: "Privacy Protected", desc: "GDPR & HIPAA Guidelines", icon: "🤫" },
+              { label: "Local Health Experts", desc: "Lucknow Ward Specialties", icon: "📍" },
+              { label: "Fast Customer Support", desc: "24/7 Helpline Team", icon: "📞" }
+            ].map((item, idx) => (
+              <div key={idx} className="bg-white hover:bg-white/95 border border-slate-200/60 hover:border-teal-300/60 rounded-2xl p-4 transition-all duration-300 shadow-sm hover:shadow-md flex flex-col items-center text-center group cursor-default">
+                <div className="p-3 rounded-xl bg-[#f0f5f1] group-hover:bg-teal-50 text-2xl mb-3 group-hover:scale-110 transition-transform duration-300">
+                  {item.icon}
+                </div>
+                <h4 className="font-display font-bold text-slate-800 text-xs sm:text-xs tracking-tight">{item.label}</h4>
+                <p className="text-[9px] text-slate-400 mt-1 font-mono">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* SECTION 5: CATEGORY DISPLAY ADS IMAGE SLIDER BANNER */}
       <section id="category-banner-slider" className="bg-[#04110e] border-y border-teal-950/80 py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_right,rgba(20,184,166,0.08),transparent_50%)]"></div>
@@ -868,30 +890,6 @@ export default function HomeView({
             </div>
           </div>
 
-        </div>
-      </section>
-
-      {/* SECTION 6: TRUST & AUTHORITY BAR */}
-      <section id="trust-bar" className="bg-[#f4f7f5] py-10 px-4 sm:px-6 lg:px-8 border-b border-slate-200/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {[
-              { label: "Verified Providers", desc: "Double NMC Cross Check", icon: "🛡️" },
-              { label: "Verified Reviews", desc: "Genuine Patient Feedback", icon: "⭐" },
-              { label: "Secure Booking", desc: "Patient Record Encryption", icon: "🔒" },
-              { label: "Privacy Protected", desc: "GDPR & HIPAA Guidelines", icon: "🤫" },
-              { label: "Local Health Experts", desc: "Lucknow Ward Specialties", icon: "📍" },
-              { label: "Fast Customer Support", desc: "24/7 Helpline Team", icon: "📞" }
-            ].map((item, idx) => (
-              <div key={idx} className="bg-white hover:bg-white/95 border border-slate-200/60 hover:border-teal-300/60 rounded-2xl p-4 transition-all duration-300 shadow-sm hover:shadow-md flex flex-col items-center text-center group cursor-default">
-                <div className="p-3 rounded-xl bg-[#f0f5f1] group-hover:bg-teal-50 text-2xl mb-3 group-hover:scale-110 transition-transform duration-300">
-                  {item.icon}
-                </div>
-                <h4 className="font-display font-bold text-slate-800 text-xs sm:text-xs tracking-tight">{item.label}</h4>
-                <p className="text-[9px] text-slate-400 mt-1 font-mono">{item.desc}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -1714,158 +1712,7 @@ export default function HomeView({
         </div>
       </section>
 
-      {/* SECTION 16: COMPARE HEALTHCARE PROVIDERS */}
-      <section id="compare-providers" className="py-12 px-4 sm:px-6 lg:px-8 bg-[#f4f7f5] border-b border-slate-200/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center space-y-2 mb-10">
-            <span className="text-teal-600 text-[10px] font-bold uppercase tracking-widest bg-teal-50 px-3 py-1 rounded-full border border-teal-100">Comparative Analytics</span>
-            <h2 className="font-display font-extrabold text-2xl sm:text-3xl text-slate-900 tracking-tight mt-2">
-              Compare Lucknow Healthcare Facilities
-            </h2>
-            <p className="text-xs text-slate-500 max-w-xl mx-auto leading-relaxed">
-              Understand parameters of empanelled setups side-by-side to make the most informed decision.
-            </p>
-          </div>
 
-          {/* Comparer Tabs */}
-          <div className="flex justify-center gap-2 mb-8">
-            {[
-              { id: "hospital", label: "🏥 Hospitals (24/7)" },
-              { id: "clinic", label: "🏢 Specialty Clinics" },
-              { id: "lab", label: "🧪 Pathology Labs" }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setCompareMetric(tab.id as any)}
-                className={`px-5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
-                  compareMetric === tab.id
-                    ? "bg-slate-900 text-white shadow-md border border-slate-950"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Comparisons parameters table */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl p-6 sm:p-8 max-w-4xl mx-auto transition-all duration-300">
-            {compareMetric === "hospital" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center text-xs">
-                <div className="space-y-4">
-                  <span className="bg-rose-50 text-rose-700 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-rose-100 uppercase tracking-wider font-mono">24/7 Multi-Specialty Admissions</span>
-                  <h3 className="font-display font-bold text-lg text-slate-900">Empanelled Hospitals Overview</h3>
-                  <p className="text-slate-500 leading-relaxed font-sans">
-                    Designed for heavy multi-specialty cases, emergency ICU admissions, complex surgical procedures, and inpatient daycare. Features standard state-accredited operations.
-                  </p>
-                  <div className="space-y-2.5 text-slate-700 font-medium font-sans">
-                    <p className="flex items-center gap-1.5"><span className="text-emerald-500">✔</span> Experience: Senior Board Certified Chiefs</p>
-                    <p className="flex items-center gap-1.5"><span className="text-emerald-500">✔</span> Average Consult Fee: ₹700 - ₹1200</p>
-                    <p className="flex items-center gap-1.5"><span className="text-emerald-500">✔</span> Facility Accreditations: NABH Accredited</p>
-                    <p className="flex items-center gap-1.5"><span className="text-emerald-500">✔</span> Emergency Trauma Level: Level-1 Active 24/7</p>
-                  </div>
-                </div>
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4">
-                  <p className="font-display font-bold text-slate-800 text-sm">Hospital Comparative Metrics:</p>
-                  <div className="space-y-3 font-sans">
-                    <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                      <span className="text-slate-500">Emergency Response Time</span>
-                      <strong className="font-bold text-teal-600 font-mono">&lt; 15 Mins</strong>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                      <span className="text-slate-500">ICU/Bed Status Tracking</span>
-                      <strong className="font-bold text-emerald-600 font-mono">Live Synced</strong>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                      <span className="text-slate-500">Third Party Cashless Insurance</span>
-                      <strong className="font-bold text-emerald-600 font-mono">98% Approved</strong>
-                    </div>
-                  </div>
-                  <button onClick={() => triggerType(ProviderType.HOSPITAL)} className="w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-2.5 rounded-xl cursor-pointer shadow-md transition-all active:scale-98">
-                    Explore All Hospitals
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {compareMetric === "clinic" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center text-xs">
-                <div className="space-y-4">
-                  <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-emerald-100 uppercase tracking-wider font-mono">Specialist Daycare OPDs</span>
-                  <h3 className="font-display font-bold text-lg text-slate-900">OPD Clinics Overview</h3>
-                  <p className="text-slate-500 leading-relaxed font-sans">
-                    Saves hospitalization costs. Best for diagnostic evaluation, dental procedures, prenatal consulting, skin sessions, and immediate general consults.
-                  </p>
-                  <div className="space-y-2.5 text-slate-700 font-medium font-sans">
-                    <p className="flex items-center gap-1.5"><span className="text-emerald-500">✔</span> Experience: 8 - 25+ Years Vetted</p>
-                    <p className="flex items-center gap-1.5"><span className="text-emerald-500">✔</span> Average Consult Fee: ₹500 - ₹800</p>
-                    <p className="flex items-center gap-1.5"><span className="text-emerald-500">✔</span> Facility Accreditations: State Clinic Board</p>
-                    <p className="flex items-center gap-1.5"><span className="text-emerald-500">✔</span> Direct Availability: Zero Admission Waiting</p>
-                  </div>
-                </div>
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4">
-                  <p className="font-display font-bold text-slate-800 text-sm">Clinic Comparative Metrics:</p>
-                  <div className="space-y-3 font-sans">
-                    <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                      <span className="text-slate-500">Average Waiting Room Time</span>
-                      <strong className="font-bold text-teal-600 font-mono">10-20 Mins</strong>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                      <span className="text-slate-500">OPD Digital Prescription</span>
-                      <strong className="font-bold text-emerald-600 font-mono">Instant PDF</strong>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                      <span className="text-slate-500">Pre-Booking Slots Booking</span>
-                      <strong className="font-bold text-emerald-600 font-mono">Direct Contact</strong>
-                    </div>
-                  </div>
-                  <button onClick={() => triggerType(ProviderType.CLINIC)} className="w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-2.5 rounded-xl cursor-pointer shadow-md transition-all active:scale-98">
-                    Explore All Clinics
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {compareMetric === "lab" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center text-xs">
-                <div className="space-y-4">
-                  <span className="bg-amber-50 text-amber-700 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-amber-100 uppercase tracking-wider font-mono">Diagnostic Pathology &amp; Imaging</span>
-                  <h3 className="font-display font-bold text-lg text-slate-900">Pathology Labs Overview</h3>
-                  <p className="text-slate-500 leading-relaxed font-sans">
-                    Designed for blood diagnostics, biochemical testing, urinalysis, biochemistry, and thyroid panel parameters. Includes certified home sample collection.
-                  </p>
-                  <div className="space-y-2.5 text-slate-700 font-medium font-sans">
-                    <p className="flex items-center gap-1.5"><span className="text-emerald-500">✔</span> Lab Quality: NABL Certified Standards</p>
-                    <p className="flex items-center gap-1.5"><span className="text-emerald-500">✔</span> Diagnostic Price: 30-50% Cheaper Packages</p>
-                    <p className="flex items-center gap-1.5"><span className="text-emerald-500">✔</span> Collection Mode: Free Home Sample Collection</p>
-                    <p className="flex items-center gap-1.5"><span className="text-emerald-500">✔</span> Turnaround Time: 6 - 12 Hour Smart Reports</p>
-                  </div>
-                </div>
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4">
-                  <p className="font-display font-bold text-slate-800 text-sm">Lab Comparative Metrics:</p>
-                  <div className="space-y-3 font-sans">
-                    <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                      <span className="text-slate-500">Home Blood Collection Wait</span>
-                      <strong className="font-bold text-teal-600 font-mono">&lt; 90 Mins</strong>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                      <span className="text-slate-500">Report Delivery Method</span>
-                      <strong className="font-bold text-emerald-600 font-mono">WhatsApp &amp; PDF</strong>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                      <span className="text-slate-500">Accreditation Verification Status</span>
-                      <strong className="font-bold text-emerald-600 font-mono">100% NABL Checked</strong>
-                    </div>
-                  </div>
-                  <button onClick={() => triggerType(ProviderType.LAB)} className="w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-2.5 rounded-xl cursor-pointer shadow-md transition-all active:scale-98">
-                    Explore All Labs
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
 
       {/* SECTION 17: WHY PATIENTS TRUST US */}
       <section id="why-patients-trust-us" className="py-12 px-4 sm:px-6 lg:px-8 bg-white border-b border-slate-200/50">
@@ -2137,8 +1984,8 @@ export default function HomeView({
             </button>
           </div>
  
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {articles.slice(0, 3).map((art) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {articles.map((art) => (
               <div key={art.id} className="bg-white rounded-3xl overflow-hidden border border-slate-200/80 hover:border-teal-300 hover:shadow-xl transition-all duration-300 flex flex-col justify-between shadow-sm">
                 <div>
                   <img
@@ -2312,51 +2159,8 @@ export default function HomeView({
           <CategoryAdSlider 
             slides={LOCALITY_ADS} 
             ctaText="Search Nearest Clinics" 
-            onActionClick={() => {
-              const element = document.getElementById("lucknow-localities");
-              if (element) element.scrollIntoView({ behavior: "smooth" });
-            }}
+            onActionClick={() => triggerType(ProviderType.CLINIC)}
           />
-        </div>
-      </section>
-
-      {/* SECTION 9: BROWSE BY LOCATION (DYNAMIC CASCADING AREAS - SHIFTED TO BOTTOM) */}
-      <section id="lucknow-localities" className="py-12 px-4 sm:px-6 lg:px-8 bg-[#f4f7f5] border-b border-slate-200/50">
-        <div className="max-w-7xl mx-auto text-center">
-          <span className="text-teal-600 text-[10px] font-bold uppercase tracking-widest bg-teal-50 px-3 py-1 rounded-full border border-teal-100">Popular Areas in {currentCityObj.name || "Lucknow"}</span>
-          <h2 className="font-display font-extrabold text-2xl sm:text-3xl text-slate-900 tracking-tight mt-3 mb-2">
-            Find Vetted Care in Your {currentCityObj.name || "Lucknow"} Locality
-          </h2>
-          <p className="text-xs text-slate-500 max-w-xl mx-auto mb-8 leading-relaxed">
-            Filter certified healthcare setups across the major blocks and wards of {currentCityObj.name || "Lucknow"} to reduce transit times.
-          </p>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {(showAllAreas ? localitiesList : localitiesList.slice(0, 18)).map((area) => (
-              <button
-                key={area}
-                onClick={() => {
-                  const locId = area.toLowerCase().replace(/\s+/g, "-");
-                  onSearch({ locality: locId, city: searchCity, type: "all" });
-                }}
-                className="bg-white border border-slate-200/60 hover:border-teal-300 hover:text-teal-600 text-slate-700 text-xs py-3 px-4 rounded-xl transition-all font-semibold shadow-sm hover:shadow-md flex items-center justify-between group cursor-pointer text-left duration-200"
-              >
-                <span>{area}</span>
-                <span className="text-slate-300 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-all text-[9px]">▶</span>
-              </button>
-            ))}
-          </div>
-
-          {localitiesList.length > 18 && (
-            <div className="mt-8">
-              <button
-                onClick={() => setShowAllAreas(!showAllAreas)}
-                className="bg-slate-900 hover:bg-black text-white text-xs font-bold px-6 py-3 rounded-xl shadow-md transition-all cursor-pointer hover:shadow-lg"
-              >
-                {showAllAreas ? "View Less Areas ▲" : `View All ${currentCityObj.name || "Lucknow"} Areas →`}
-              </button>
-            </div>
-          )}
         </div>
       </section>
 
@@ -2444,11 +2248,7 @@ export default function HomeView({
         </div>
       </section>
 
-      {/* TRUST & ACCREDITATION SEALS SECTION */}
-      <TrustAndVerificationSeals />
 
-      {/* TRENDING LUCKNOW SEASONAL HEALTH TIPS SECTION (MOVED TO BOTTOM BEFORE FOOTER) */}
-      <TrendingHealthTips onNavigate={onNavigate} onSearchSpecialty={(spec) => onSearch({ query: spec })} />
 
       {/* FLOATING SOCIAL MEDIA & HELPLINE ACTIONS */}
       <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-2">
