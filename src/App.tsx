@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ViewState, SearchParams, Provider, Appointment, Review, ProviderType } from "./types";
+import { ViewState, SearchParams, Provider, Appointment, Review, ProviderType, UserRole } from "./types";
 import { INITIAL_PROVIDERS, HEALTH_PACKAGES, ARTICLES, MOCK_REVIEWS } from "./data";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
@@ -32,6 +32,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<"login" | "signup">("login");
+  const [authInitialRole, setAuthInitialRole] = useState<UserRole>("doctor");
   
   // Search parameters for results view
   const [searchParams, setSearchParams] = useState<SearchParams>({
@@ -159,8 +160,9 @@ export default function App() {
     }
   };
 
-  const handleOpenAuth = (mode: "login" | "signup") => {
+  const handleOpenAuth = (mode: "login" | "signup", role: UserRole = "patient") => {
     setAuthInitialMode(mode);
+    setAuthInitialRole(role);
     setShowAuthModal(true);
   };
 
@@ -334,7 +336,7 @@ export default function App() {
             setDashboardInitialTab("add_listing");
             navigateToView("dashboard");
           } else {
-            handleOpenAuth("signup");
+            handleOpenAuth("signup", "doctor");
           }
         }}
       />
@@ -443,11 +445,12 @@ export default function App() {
       {showAuthModal && (
         <AuthModal 
           initialMode={authInitialMode}
+          initialRole={authInitialRole}
           onClose={() => setShowAuthModal(false)}
           onAuthSuccess={(user, passedRole) => {
             setCurrentUser(user);
             const [_, role] = user.displayName?.split('|') || [user.email, passedRole || 'patient'];
-            if (role === 'provider' || passedRole === 'provider' || user.displayName?.startsWith('Dr.')) {
+            if (role !== 'patient' || user.displayName?.startsWith('Dr.')) {
               setActiveView("dashboard");
             }
           }}

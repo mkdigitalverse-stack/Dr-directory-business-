@@ -150,3 +150,140 @@ export interface SearchParams {
   onlineConsultation: boolean;
   emergencyServices: boolean;
 }
+
+export type UserRole = "patient" | "doctor" | "clinic" | "hospital" | "diagnostic_lab" | "moderator" | "admin";
+
+export type AccountStatus = "active" | "pending_verification" | "suspended" | "rejected" | "inactive";
+
+export interface FamilyMember {
+  id: string;
+  name: string;
+  relationship: string;
+  gender: string;
+  age: number;
+  bloodGroup?: string;
+}
+
+export interface VerificationDocument {
+  id: string;
+  documentType: string;
+  documentNumber: string;
+  issueDate?: string;
+  fileUrl?: string;
+  submittedAt: string;
+  status: "pending" | "approved" | "rejected";
+  rejectionReason?: string;
+}
+
+export interface ProfileCompleteness {
+  score: number;
+  breakdown: {
+    basicInfo: boolean;
+    about: boolean;
+    services: boolean;
+    gallery: boolean;
+    timings: boolean;
+    verification: boolean;
+    contact: boolean;
+    faqs: boolean;
+  };
+  suggestions: { id: string; label: string; points: number }[];
+}
+
+export interface UserProfile {
+  uid: string;
+  name: string;
+  email: string;
+  mobile?: string;
+  role: UserRole;
+  status: AccountStatus;
+  createdAt: string;
+  lastLogin?: string;
+  medicalRegistrationNumber?: string;
+  qualification?: string;
+  specialty?: string;
+  facilityName?: string;
+  address?: string;
+  city?: string;
+  locality?: string;
+  familyMembers?: FamilyMember[];
+  notificationPreferences?: {
+    email: boolean;
+    sms: boolean;
+    whatsapp: boolean;
+    push: boolean;
+  };
+  verificationDocuments?: VerificationDocument[];
+  profileScore?: ProfileCompleteness;
+  providerId?: string;
+}
+
+export interface ReceptionStaff {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  assignedClinicId: string;
+  addedAt: string;
+}
+
+export interface HospitalDepartment {
+  id: string;
+  name: string;
+  headDoctor: string;
+  doctorCount: number;
+  bedCapacity: number;
+  availableBeds: number;
+}
+
+export interface LabTestItem {
+  id: string;
+  testName: string;
+  category: string;
+  price: number;
+  sampleRequired: string;
+  turnaroundTime: string;
+  isHomeCollectionAvailable: boolean;
+}
+
+export interface LabReport {
+  id: string;
+  patientName: string;
+  testName: string;
+  date: string;
+  status: "processing" | "ready" | "delivered";
+  reportUrl?: string;
+}
+
+export interface AbuseReport {
+  id: string;
+  targetId: string;
+  targetName: string;
+  reporterName: string;
+  reason: string;
+  date: string;
+  status: "pending" | "resolved" | "dismissed";
+}
+
+export interface AdvertCampaign {
+  id: string;
+  title: string;
+  providerName: string;
+  placement: "hero_banner" | "search_top" | "sidebar";
+  budget: number;
+  clicks: number;
+  impressions: number;
+  status: "active" | "paused" | "completed";
+}
+
+export interface AuditLog {
+  id: string;
+  actorName: string;
+  actorRole: UserRole;
+  action: string;
+  targetUser?: string;
+  timestamp: string;
+  details: string;
+}
+
+

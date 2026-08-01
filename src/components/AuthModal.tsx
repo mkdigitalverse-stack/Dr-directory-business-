@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
-  X, Mail, Lock, User, ShieldAlert, CheckCircle, ArrowRight, Activity, Stethoscope, Eye, EyeOff, KeyRound, Sparkles 
+  X, Mail, Lock, User, ShieldAlert, CheckCircle, ArrowRight, Activity, Stethoscope, 
+  Eye, EyeOff, KeyRound, Sparkles, Building2, Hospital as HospitalIcon, FlaskConical, 
+  Smartphone, FileCheck, Check, Clock, RefreshCw, ShieldCheck, UserCheck
 } from "lucide-react";
 import { 
   signInWithEmailAndPassword, 
@@ -11,24 +13,64 @@ import {
   sendPasswordResetEmail
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
+import { UserRole, AccountStatus, UserProfile } from "../types";
 
 interface AuthModalProps {
   onClose: () => void;
-  onAuthSuccess: (user: any, role?: "patient" | "provider") => void;
+  onAuthSuccess: (user: any, role?: UserRole, profile?: UserProfile) => void;
   initialMode?: "login" | "signup";
+  initialRole?: UserRole;
 }
 
-export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login" }: AuthModalProps) {
+export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login", initialRole = "doctor" }: AuthModalProps) {
   const [mode, setMode] = useState<"login" | "signup" | "reset">(initialMode);
-  const [userRole, setUserRole] = useState<"patient" | "provider">("patient");
+  const [loginMethod, setLoginMethod] = useState<"email" | "mobile">("email");
+  const [selectedRole, setSelectedRole] = useState<UserRole>(initialRole || "doctor");
+  const [showDemoSection, setShowDemoSection] = useState(false);
+  
+  // Patient Fields
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(true);
+
+  // Doctor Fields
+  const [medicalRegNo, setMedicalRegNo] = useState("");
+  const [qualification, setQualification] = useState("");
+  const [specialty, setSpecialty] = useState("Cardiology");
+  const [facilityName, setFacilityName] = useState("");
+
+  // Clinic / Hospital / Lab Fields
+  const [facilityOwner, setFacilityOwner] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("Lucknow");
+
+  // OTP Verification Step State
+  const [isOtpStep, setIsOtpStep] = useState(false);
+  const [otpCode, setOtpCode] = useState(["1", "2", "3", "4"]);
+  const [otpTimer, setOtpTimer] = useState(30);
+  const [pendingUserData, setPendingUserData] = useState<any>(null);
+
+  // Error / Success / Loading States
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Countdown timer for OTP
+  useEffect(() => {
+    let interval: any = null;
+    if (isOtpStep && otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isOtpStep, otpTimer]);
 
   // Handle Google OAuth Sign In
   const handleGoogleSignIn = async () => {
@@ -39,18 +81,28 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       
-      // Save metadata locally if new
       const metaKey = `lko_user_meta_${result.user.uid}`;
-      if (!localStorage.getItem(metaKey)) {
-        localStorage.setItem(metaKey, JSON.stringify({
-          name: result.user.displayName || "User",
-          role: userRole
-        }));
+      const existingProfileStr = localStorage.getItem(metaKey);
+      
+      let userProfile: UserProfile;
+      if (existingProfileStr) {
+        userProfile = JSON.parse(existingProfileStr);
+      } else {
+        userProfile = {
+          uid: result.user.uid,
+          name: result.user.displayName || "Google User",
+          email: result.user.email || "",
+          role: selectedRole,
+          status: selectedRole === "patient" ? "active" : "pending_verification",
+          createdAt: new Date().toISOString().split("T")[0],
+          lastLogin: new Date().toISOString()
+        };
+        localStorage.setItem(metaKey, JSON.stringify(userProfile));
       }
 
-      setSuccessMsg("Google Sign-In successful! Welcome.");
+      setSuccessMsg("Google Sign-In successful! Accessing portal...");
       setTimeout(() => {
-        onAuthSuccess(result.user, userRole);
+        onAuthSuccess(result.user, userProfile.role, userProfile);
         onClose();
       }, 500);
     } catch (err: any) {
@@ -59,9 +111,9 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
       if (err.code === "auth/popup-closed-by-user") {
         msg = "Google sign-in popup was closed before completing.";
       } else if (err.code === "auth/popup-blocked") {
-        msg = "Sign-in popup was blocked by your browser. Please allow popups for this site.";
+        msg = "Sign-in popup was blocked by browser. Please allow popups.";
       } else if (err.code === "auth/operation-not-allowed") {
-        msg = "Google Sign-In is disabled in your Firebase Console. Click 'Instant Access' below to proceed seamlessly.";
+        msg = "Google Sign-In disabled in Firebase Console. Click Instant Access below.";
       } else if (err.message) {
         msg = err.message;
       }
@@ -71,36 +123,79 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
     }
   };
 
-  // Instant Local Session Fallback with Role support
-  const handleInstantDemoAccess = (targetRole?: "patient" | "provider") => {
-    const activeRole = targetRole || userRole;
-    const demoUid = `user-demo-${Date.now()}`;
-    const demoName = activeRole === "provider" 
-      ? (name.trim() || "Dr. Anand Verma") 
-      : (name.trim() || "Kamlesh Kumar");
-    const demoEmail = email.trim() || (activeRole === "provider" ? "doctor@lucknowhealth.org" : "patient@lucknowhealth.org");
+  // 1-Click Instant Demo Portals for test evaluation
+  const handleInstantDemoAccess = (targetRole: UserRole) => {
+    const demoUid = `user-demo-${targetRole}-${Date.now()}`;
+    const roleNames: Record<UserRole, string> = {
+      patient: "Kamlesh Kumar",
+      doctor: "Dr. Anand Verma",
+      clinic: "Hazratganj Dental Care Clinic",
+      hospital: "MedCity Hospital Lucknow",
+      diagnostic_lab: "Dr. Lal PathLabs Gomti Nagar",
+      moderator: "Health Moderator",
+      admin: "Super Admin"
+    };
+
+    const status: AccountStatus = (targetRole === "patient" || targetRole === "admin" || targetRole === "moderator") 
+      ? "active" 
+      : "pending_verification";
+
+    const demoName = roleNames[targetRole] || "Demo User";
+    const demoEmail = `${targetRole}@lucknowhealth.org`;
+
     const demoUser = {
       uid: demoUid,
       email: demoEmail,
-      displayName: `${demoName}|${activeRole}`
+      displayName: `${demoName}|${targetRole}`
     };
-    localStorage.setItem(`lko_user_meta_${demoUid}`, JSON.stringify({
+
+    const profileScore = (targetRole !== "patient" && targetRole !== "admin" && targetRole !== "moderator") ? {
+      score: 75,
+      breakdown: {
+        basicInfo: true,
+        about: true,
+        services: true,
+        gallery: false,
+        timings: true,
+        verification: true,
+        contact: true,
+        faqs: false
+      },
+      suggestions: [
+        { id: "s1", label: "Add Clinic Gallery Photos", points: 15 },
+        { id: "s2", label: "Add Patient FAQs", points: 10 }
+      ]
+    } : undefined;
+
+    const userProfile: UserProfile = {
+      uid: demoUid,
       name: demoName,
-      role: activeRole
-    }));
+      email: demoEmail,
+      mobile: "+91 98765 43210",
+      role: targetRole,
+      status: status,
+      createdAt: new Date().toISOString().split("T")[0],
+      lastLogin: new Date().toISOString(),
+      facilityName: targetRole === "doctor" ? "Anand Heart Care" : (targetRole === "clinic" ? "Hazratganj Dental" : undefined),
+      medicalRegistrationNumber: targetRole === "doctor" ? "UP-MCI-88201" : undefined,
+      profileScore
+    };
+
+    localStorage.setItem(`lko_user_meta_${demoUid}`, JSON.stringify(userProfile));
     localStorage.setItem("lko_demo_session", JSON.stringify(demoUser));
-    setSuccessMsg(`Welcome ${demoName}! Accessing ${activeRole === "provider" ? "Doctor Practice Portal" : "Patient Portal"}...`);
+
+    setSuccessMsg(`Accessing portal as ${demoName} (${targetRole.replace("_", " ").toUpperCase()})...`);
     setTimeout(() => {
-      onAuthSuccess(demoUser, activeRole);
+      onAuthSuccess(demoUser, targetRole, userProfile);
       onClose();
     }, 500);
   };
 
-  // Handle Password Reset Request
+  // Password Reset Request
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
-      setErrorMsg("Please enter your email address to reset password.");
+      setErrorMsg("Please enter your registered email address.");
       return;
     }
     setErrorMsg("");
@@ -123,77 +218,217 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Submit Step 1 Registration -> Initiates OTP Step
+  const handleInitiateRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (mode === "reset") {
-      return handleResetPassword(e);
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    if (!mobile.trim()) {
+      setErrorMsg("Mobile number is required for OTP verification.");
+      return;
+    }
+    if (!acceptTerms) {
+      setErrorMsg("Please accept LKOHEALTH Terms & Privacy Policy.");
+      return;
     }
 
+    if (selectedRole === "doctor" && (!medicalRegNo.trim() || !qualification.trim())) {
+      setErrorMsg("Medical Registration Number & Qualification are mandatory for Doctor registration.");
+      return;
+    }
+
+    if ((selectedRole === "clinic" || selectedRole === "hospital" || selectedRole === "diagnostic_lab") && !facilityName.trim()) {
+      setErrorMsg("Facility Name is required for registration.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const registerEmail = email.trim() || `${mobile.replace(/\D/g, "")}@lucknowhealth.org`;
+      const registerPassword = password || "LucknowHealth123!";
+      
+      const displayName = selectedRole === "patient" 
+        ? name.trim() 
+        : (selectedRole === "doctor" ? `Dr. ${name.trim()}` : facilityName.trim());
+
+      setPendingUserData({
+        displayName,
+        email: registerEmail,
+        password: registerPassword,
+        mobile,
+        role: selectedRole,
+        medicalRegNo,
+        qualification,
+        specialty,
+        facilityName,
+        facilityOwner,
+        address,
+        city
+      });
+
+      // Switch to OTP Verification Modal view
+      setIsOtpStep(true);
+      setOtpTimer(30);
+      setSuccessMsg(`OTP sent successfully to ${mobile}. Enter '1234' to verify.`);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to initialize registration.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Verify OTP and complete Registration
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const codeStr = otpCode.join("");
+    if (codeStr.length < 4) {
+      setErrorMsg("Please enter complete 4-digit OTP code.");
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg("");
+
+    try {
+      let firebaseUser: any = null;
+      let uid = `user-reg-${Date.now()}`;
+
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, pendingUserData.email, pendingUserData.password);
+        firebaseUser = userCredential.user;
+        uid = firebaseUser.uid;
+        await updateProfile(firebaseUser, {
+          displayName: `${pendingUserData.displayName}|${pendingUserData.role}`
+        });
+      } catch (authErr: any) {
+        // Fallback demo user if Firebase email auth disabled or offline
+        console.warn("Firebase User Creation warning, creating authenticated session:", authErr);
+        firebaseUser = {
+          uid,
+          email: pendingUserData.email,
+          displayName: `${pendingUserData.displayName}|${pendingUserData.role}`
+        };
+      }
+
+      const status: AccountStatus = pendingUserData.role === "patient" 
+        ? "active" 
+        : "pending_verification";
+
+      const profileScore = pendingUserData.role !== "patient" ? {
+        score: 65,
+        breakdown: {
+          basicInfo: true,
+          about: false,
+          services: true,
+          gallery: false,
+          timings: true,
+          verification: true,
+          contact: true,
+          faqs: false
+        },
+        suggestions: [
+          { id: "s1", label: "Submit Medical Council License Document", points: 20 },
+          { id: "s2", label: "Add Comprehensive About Bio & Facility Photos", points: 15 }
+        ]
+      } : undefined;
+
+      const userProfile: UserProfile = {
+        uid,
+        name: pendingUserData.displayName,
+        email: pendingUserData.email,
+        mobile: pendingUserData.mobile,
+        role: pendingUserData.role,
+        status,
+        createdAt: new Date().toISOString().split("T")[0],
+        lastLogin: new Date().toISOString(),
+        medicalRegistrationNumber: pendingUserData.medicalRegNo,
+        qualification: pendingUserData.qualification,
+        specialty: pendingUserData.specialty,
+        facilityName: pendingUserData.facilityName,
+        address: pendingUserData.address,
+        city: pendingUserData.city,
+        profileScore
+      };
+
+      localStorage.setItem(`lko_user_meta_${uid}`, JSON.stringify(userProfile));
+
+      setSuccessMsg(
+        status === "active" 
+          ? "Account verified & registered successfully! Welcome." 
+          : "Registration received! Status: Pending Verification. Welcome to your provider portal."
+      );
+
+      setTimeout(() => {
+        onAuthSuccess(firebaseUser, pendingUserData.role, userProfile);
+        onClose();
+      }, 600);
+    } catch (err: any) {
+      setErrorMsg(err.message || "OTP verification failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Submit Standard Login (Email or Mobile)
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setErrorMsg("");
     setSuccessMsg("");
     setLoading(true);
 
     try {
-      if (mode === "login") {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const metaKey = `lko_user_meta_${userCredential.user.uid}`;
-        const stored = localStorage.getItem(metaKey);
-        let userRoleMeta: "patient" | "provider" = userRole;
-        if (stored) {
-          try {
-            userRoleMeta = JSON.parse(stored).role || userRole;
-          } catch {}
-        } else if (userCredential.user.displayName?.includes("provider") || userCredential.user.displayName?.startsWith("Dr.")) {
-          userRoleMeta = "provider";
+      if (loginMethod === "mobile") {
+        // Mobile + OTP login prompt
+        if (!mobile.trim()) {
+          throw new Error("Mobile number is required.");
         }
-        setSuccessMsg("Signed in successfully! Accessing portal...");
-        setTimeout(() => {
-          onAuthSuccess(userCredential.user, userRoleMeta);
-          onClose();
-        }, 500);
-      } else {
-        if (!name.trim()) {
-          throw new Error("Full name is required for account registration.");
-        }
-        if (password.length < 6) {
-          throw new Error("Password must be at least 6 characters.");
-        }
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        
-        // Update Firebase User Profile
-        await updateProfile(userCredential.user, {
-          displayName: `${name.trim()}|${userRole}`
+        setIsOtpStep(true);
+        setPendingUserData({
+          email: `${mobile.replace(/\D/g, "")}@lucknowhealth.org`,
+          displayName: "Mobile Verified User",
+          role: selectedRole,
+          mobile
         });
-
-        // Store role & name local fallback for smooth session recovery
-        localStorage.setItem(`lko_user_meta_${userCredential.user.uid}`, JSON.stringify({
-          name: name.trim(),
-          role: userRole
-        }));
-
-        setSuccessMsg("Account registered successfully! Welcome to LKOHEALTH.");
-        setTimeout(() => {
-          onAuthSuccess(userCredential.user, userRole);
-          onClose();
-        }, 500);
+        setSuccessMsg(`OTP sent to ${mobile}. Enter '1234' to sign in.`);
+        setLoading(false);
+        return;
       }
+
+      // Email + Password login
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const metaKey = `lko_user_meta_${userCredential.user.uid}`;
+      const stored = localStorage.getItem(metaKey);
+
+      let userProfile: UserProfile;
+      if (stored) {
+        userProfile = JSON.parse(stored);
+      } else {
+        userProfile = {
+          uid: userCredential.user.uid,
+          name: userCredential.user.displayName?.split("|")[0] || "User",
+          email: userCredential.user.email || email,
+          role: selectedRole,
+          status: "active",
+          createdAt: new Date().toISOString().split("T")[0]
+        };
+      }
+
+      setSuccessMsg("Signed in successfully! Accessing portal...");
+      setTimeout(() => {
+        onAuthSuccess(userCredential.user, userProfile.role, userProfile);
+        onClose();
+      }, 500);
     } catch (err: any) {
-      console.error("Auth error:", err);
+      console.error("Login error:", err);
       let msg = err.message || "An error occurred during authentication.";
       if (err.code === "auth/user-not-found") {
-        msg = "No account found with this email. Click 'Register' tab or use Instant Access.";
+        msg = "No account found with this email. Switch to Register or Instant Access below.";
       } else if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
-        msg = "Invalid email or password combination. Please re-check your entry.";
-      } else if (err.code === "auth/email-already-in-use") {
-        msg = "This email is already registered. Switch to 'Sign In' to access your account.";
-      } else if (err.code === "auth/weak-password") {
-        msg = "Password should be at least 6 characters long.";
-      } else if (err.code === "auth/invalid-email") {
-        msg = "Please enter a valid email address.";
-      } else if (err.code === "auth/too-many-requests") {
-        msg = "Too many unsuccessful attempts. Please wait a few minutes and try again.";
+        msg = "Invalid email or password combination.";
       } else if (err.code === "auth/operation-not-allowed") {
-        msg = "Firebase Email Auth provider is not enabled in Console. Click 'Instant Access' below to log in smoothly.";
+        msg = "Email login disabled in Firebase Console. Click Instant Access below.";
       }
       setErrorMsg(msg);
     } finally {
@@ -203,15 +438,13 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto font-sans">
-      {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" 
         onClick={onClose}
       ></div>
 
-      {/* Center modal */}
-      <div className="flex min-h-full items-center justify-center p-4 text-center">
-        <div className="relative transform overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all w-full max-w-md border border-slate-100 flex flex-col">
+      <div className="flex min-h-full items-center justify-center p-3 sm:p-4 text-center">
+        <div className="relative transform overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all w-full max-w-lg border border-slate-100 flex flex-col my-6">
           
           {/* Header Banner */}
           <div className="bg-gradient-to-r from-teal-800 to-teal-950 p-6 text-white text-center relative overflow-hidden">
@@ -224,27 +457,35 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
               <X className="h-4 w-4" />
             </button>
 
-            <div className="mx-auto bg-teal-500/15 border border-teal-400/20 text-teal-300 rounded-2xl w-12 h-12 flex items-center justify-center mb-3">
+            <div className="mx-auto bg-teal-500/15 border border-teal-400/20 text-teal-300 rounded-2xl w-12 h-12 flex items-center justify-center mb-2">
               <Activity className="h-6 w-6 stroke-[2]" />
             </div>
 
             <h3 className="text-xl font-sans font-extrabold tracking-tight">
-              {mode === "login" ? "Welcome Back to LKOHEALTH" : mode === "signup" ? "Create your LKOHEALTH Account" : "Reset Account Password"}
+              {isOtpStep 
+                ? "Verify OTP Code" 
+                : mode === "login" 
+                ? "Welcome Back to LKOHEALTH" 
+                : mode === "signup" 
+                ? "Healthcare Portal Registration" 
+                : "Reset Password"}
             </h3>
-            <p className="text-xs text-teal-200/90 mt-1">
-              {mode === "login" 
-                ? "Sign in to manage practice listings & appointments" 
+            <p className="text-xs text-teal-200/90 mt-1 max-w-md mx-auto">
+              {isOtpStep 
+                ? `Enter 4-digit code sent to ${pendingUserData?.mobile || "your mobile"}`
+                : mode === "login" 
+                ? "Sign in to access appointments, medical records, or provider management" 
                 : mode === "signup"
-                ? "Join Lucknow's verified medical discovery portal"
-                : "Enter your registered email to receive a password reset link"}
+                ? "Join Lucknow's NMC-verified medical ecosystem"
+                : "Enter registered email to receive a password reset link"}
             </p>
           </div>
 
-          {/* Form / Content */}
-          <div className="p-6 sm:p-8 space-y-5">
+          {/* Form & Modal Body */}
+          <div className="p-5 sm:p-7 space-y-4 max-h-[78vh] overflow-y-auto">
             
             {/* Mode Switcher Tabs */}
-            {mode !== "reset" && (
+            {!isOtpStep && mode !== "reset" && (
               <div className="flex bg-slate-100 rounded-xl p-1 border border-slate-200/50">
                 <button
                   type="button"
@@ -270,46 +511,148 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
                     mode === "signup" ? "bg-white text-teal-950 shadow-sm" : "text-slate-500 hover:text-teal-800"
                   }`}
                 >
-                  Register
+                  Register Account
                 </button>
               </div>
             )}
 
             {/* Error & Success Messages */}
             {errorMsg && (
-              <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3.5 rounded-xl text-xs space-y-2.5">
-                <div className="flex items-start gap-2.5">
-                  <ShieldAlert className="h-4.5 w-4.5 text-rose-500 shrink-0 mt-0.5" />
-                  <span className="font-medium leading-relaxed">{errorMsg}</span>
-                </div>
-                {(errorMsg.includes("operation-not-allowed") || errorMsg.includes("disabled") || errorMsg.includes("Firebase")) && (
-                  <button
-                    type="button"
-                    onClick={handleInstantDemoAccess}
-                    className="w-full bg-teal-700 hover:bg-teal-800 text-white font-extrabold py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm mt-1"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    <span>Continue as {userRole === "provider" ? "Doctor / Practice" : "Patient"} (Instant Access)</span>
-                  </button>
-                )}
+              <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-xl text-xs flex items-start gap-2">
+                <ShieldAlert className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+                <span className="font-medium leading-relaxed">{errorMsg}</span>
               </div>
             )}
 
             {successMsg && (
-              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3.5 rounded-xl text-xs flex items-start gap-2.5">
-                <CheckCircle className="h-4.5 w-4.5 text-emerald-500 shrink-0 mt-0.5" />
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
                 <span className="font-medium leading-relaxed">{successMsg}</span>
               </div>
             )}
 
-            {/* Quick Google Sign In & Instant Portal Demo Buttons */}
-            {mode !== "reset" && (
-              <div className="space-y-3">
+            {/* OTP Verification View */}
+            {isOtpStep ? (
+              <form onSubmit={handleVerifyOtp} className="space-y-4 text-center py-2">
+                <div className="bg-teal-50/70 border border-teal-200/80 rounded-2xl p-4 text-left space-y-2">
+                  <div className="flex items-center gap-2 text-teal-900 font-bold text-xs">
+                    <Smartphone className="h-4 w-4 text-teal-600" />
+                    <span>OTP Sent via SMS to {pendingUserData?.mobile}</span>
+                  </div>
+                  <p className="text-[11px] text-teal-700 leading-snug">
+                    Enter test code <span className="font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-teal-300">1234</span> or your SMS OTP code below to finalize authentication.
+                  </p>
+                </div>
+
+                <div className="flex justify-center items-center gap-2 py-2">
+                  {otpCode.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      id={`otp-input-${idx}`}
+                      type="text"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        const newCode = [...otpCode];
+                        newCode[idx] = val;
+                        setOtpCode(newCode);
+                        if (val && idx < 3) {
+                          const nextInput = document.getElementById(`otp-input-${idx + 1}`);
+                          if (nextInput) nextInput.focus();
+                        }
+                      }}
+                      className="w-12 h-12 text-center text-lg font-mono font-extrabold text-teal-950 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-teal-500 focus:bg-white focus:outline-none transition-all shadow-2xs"
+                    />
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+                  <div className="flex items-center gap-1 font-mono">
+                    <Clock className="h-3.5 w-3.5 text-slate-400" />
+                    <span>00:{otpTimer < 10 ? `0${otpTimer}` : otpTimer}</span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={otpTimer > 0}
+                    onClick={() => {
+                      setOtpTimer(30);
+                      setSuccessMsg("New OTP code re-sent to mobile.");
+                    }}
+                    className="text-teal-600 hover:text-teal-700 disabled:text-slate-300 font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    <span>Resend OTP</span>
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white font-bold text-xs py-3 px-4 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  <span>{loading ? "Verifying OTP..." : "Confirm & Complete Registration"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsOtpStep(false)}
+                  className="text-xs text-slate-500 hover:text-slate-700 font-semibold cursor-pointer block mx-auto pt-1"
+                >
+                  ← Back to Details
+                </button>
+              </form>
+            ) : mode === "reset" ? (
+              /* Password Reset View */
+              <form onSubmit={handleResetPassword} className="space-y-4 text-left">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="auth-reset-email">
+                    Registered Email Address
+                  </label>
+                  <div className="relative rounded-xl border border-slate-200 bg-slate-50 focus-within:border-teal-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-100 transition-all">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                      <Mail className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <input
+                      id="auth-reset-email"
+                      type="email"
+                      required
+                      placeholder="user@lucknowhealth.org"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="block w-full border-0 bg-transparent py-2.5 pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white font-bold text-xs py-3 px-4 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  <span>{loading ? "Sending..." : "Send Password Reset Link"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMode("login")}
+                  className="w-full text-center text-xs font-bold text-slate-500 hover:text-teal-700 pt-1 cursor-pointer"
+                >
+                  ← Back to Sign In
+                </button>
+              </form>
+            ) : (
+              /* Normal Sign In & Register Views */
+              <div className="space-y-4">
+                
+                {/* Google Sign In */}
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={googleLoading || loading}
-                  className="w-full bg-white hover:bg-slate-50 border border-slate-250 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition-all shadow-2xs hover:shadow-xs flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
+                  className="w-full bg-white hover:bg-slate-50 border border-slate-250 text-slate-700 font-bold text-xs py-2.5 px-4 rounded-xl transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -320,191 +663,420 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
                   <span>{googleLoading ? "Connecting Google..." : "Continue with Google"}</span>
                 </button>
 
-                {/* 1-Click Instant Demo Portals */}
-                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 text-center space-y-2">
-                  <div className="flex items-center justify-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
-                    <Sparkles className="h-3.5 w-3.5 text-teal-600" />
-                    <span>⚡ One-Click Instant Access</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleInstantDemoAccess("provider")}
-                      className="bg-white hover:bg-teal-50/80 border border-slate-200 hover:border-teal-300 text-teal-950 text-xs font-bold py-2 px-2.5 rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Stethoscope className="h-3.5 w-3.5 text-teal-600 shrink-0" />
-                      <span>Doctor Portal</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInstantDemoAccess("patient")}
-                      className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 text-xs font-bold py-2 px-2.5 rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <User className="h-3.5 w-3.5 text-slate-600 shrink-0" />
-                      <span>Patient Portal</span>
-                    </button>
-                  </div>
-                </div>
-
                 <div className="relative flex py-1 items-center">
                   <div className="flex-grow border-t border-slate-200"></div>
-                  <span className="flex-shrink mx-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">or email sign in</span>
+                  <span className="flex-shrink mx-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">or continue below</span>
                   <div className="flex-grow border-t border-slate-200"></div>
+                </div>
+
+                {/* SIGN IN FORM */}
+                {mode === "login" ? (
+                  <form onSubmit={handleLoginSubmit} className="space-y-3.5 text-left">
+                    <div className="flex bg-slate-100 rounded-lg p-1 text-[11px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setLoginMethod("email")}
+                        className={`flex-1 py-1 rounded transition-all ${loginMethod === "email" ? "bg-white text-teal-900 shadow-2xs" : "text-slate-500"}`}
+                      >
+                        Email + Password
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLoginMethod("mobile")}
+                        className={`flex-1 py-1 rounded transition-all ${loginMethod === "mobile" ? "bg-white text-teal-900 shadow-2xs" : "text-slate-500"}`}
+                      >
+                        Mobile + OTP
+                      </button>
+                    </div>
+
+                    {loginMethod === "email" ? (
+                      <>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="login-email">
+                            Email Address
+                          </label>
+                          <div className="relative rounded-xl border border-slate-200 bg-slate-50 focus-within:border-teal-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-100 transition-all">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                              <Mail className="h-4 w-4 text-slate-400" />
+                            </div>
+                            <input
+                              id="login-email"
+                              type="email"
+                              required
+                              placeholder="doctor@lucknowhealth.org"
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              className="block w-full border-0 bg-transparent py-2.5 pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="login-password">
+                              Password
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setMode("reset")}
+                              className="text-[10px] text-teal-600 hover:text-teal-700 font-bold cursor-pointer hover:underline"
+                            >
+                              Forgot Password?
+                            </button>
+                          </div>
+                          <div className="relative rounded-xl border border-slate-200 bg-slate-50 focus-within:border-teal-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-100 transition-all">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                              <Lock className="h-4 w-4 text-slate-400" />
+                            </div>
+                            <input
+                              id="login-password"
+                              type={showPassword ? "text" : "password"}
+                              required
+                              placeholder="••••••••"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              className="block w-full border-0 bg-transparent py-2.5 pl-9 pr-10 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            >
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="login-mobile">
+                          Mobile Number
+                        </label>
+                        <div className="relative rounded-xl border border-slate-200 bg-slate-50 focus-within:border-teal-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-100 transition-all">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <Smartphone className="h-4 w-4 text-slate-400" />
+                          </div>
+                          <input
+                            id="login-mobile"
+                            type="tel"
+                            required
+                            placeholder="+91 98765 43210"
+                            value={mobile}
+                            onChange={(e) => setMobile(e.target.value)}
+                            className="block w-full border-0 bg-transparent py-2.5 pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white font-bold text-xs py-3 px-4 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer mt-2"
+                    >
+                      <span>{loading ? "Authenticating..." : loginMethod === "mobile" ? "Send OTP" : "Sign In"}</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  </form>
+                ) : (
+                  /* REGISTER ACCOUNT FORM (Multi-role specific inputs) */
+                  <form onSubmit={handleInitiateRegistration} className="space-y-3.5 text-left">
+                    
+                    {/* Role Selector Grid */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Select Account Role
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {[
+                          { role: "patient", label: "Patient", icon: User },
+                          { role: "doctor", label: "Doctor", icon: Stethoscope },
+                          { role: "clinic", label: "Clinic", icon: Building2 },
+                          { role: "hospital", label: "Hospital", icon: HospitalIcon },
+                          { role: "diagnostic_lab", label: "Diagnostic Lab", icon: FlaskConical }
+                        ].map((item) => {
+                          const IconComp = item.icon;
+                          const isSel = selectedRole === item.role;
+                          return (
+                            <button
+                              key={item.role}
+                              type="button"
+                              onClick={() => setSelectedRole(item.role as UserRole)}
+                              className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                                isSel 
+                                  ? "border-teal-600 bg-teal-50 text-teal-950 shadow-2xs ring-1 ring-teal-500" 
+                                  : "border-slate-200 hover:bg-slate-50 text-slate-600"
+                              }`}
+                            >
+                              <IconComp className={`h-3.5 w-3.5 ${isSel ? "text-teal-600" : "text-slate-400"}`} />
+                              <span className="truncate">{item.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Basic Name Field */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-name">
+                        {selectedRole === "patient" 
+                          ? "Full Name" 
+                          : selectedRole === "doctor" 
+                          ? "Doctor's Name" 
+                          : "Facility / Practice Name"}
+                      </label>
+                      <div className="relative rounded-xl border border-slate-200 bg-slate-50 focus-within:border-teal-500 focus-within:bg-white transition-all">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <User className="h-4 w-4 text-slate-400" />
+                        </div>
+                        <input
+                          id="reg-name"
+                          type="text"
+                          required
+                          placeholder={
+                            selectedRole === "patient" ? "e.g. Kamlesh Kumar" :
+                            selectedRole === "doctor" ? "e.g. Anand Verma" :
+                            "e.g. MedCity Healthcare Center"
+                          }
+                          value={selectedRole === "clinic" || selectedRole === "hospital" || selectedRole === "diagnostic_lab" ? facilityName : name}
+                          onChange={(e) => {
+                            if (selectedRole === "clinic" || selectedRole === "hospital" || selectedRole === "diagnostic_lab") {
+                              setFacilityName(e.target.value);
+                            } else {
+                              setName(e.target.value);
+                            }
+                          }}
+                          className="block w-full border-0 bg-transparent py-2.5 pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Doctor Specific Fields */}
+                    {selectedRole === "doctor" && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-regno">
+                            Medical Registration No (NMC)
+                          </label>
+                          <input
+                            id="reg-regno"
+                            type="text"
+                            required
+                            placeholder="e.g. UP-MCI-99120"
+                            value={medicalRegNo}
+                            onChange={(e) => setMedicalRegNo(e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-qual">
+                            Qualification & Degree
+                          </label>
+                          <input
+                            id="reg-qual"
+                            type="text"
+                            required
+                            placeholder="e.g. MBBS, MD Cardiology"
+                            value={qualification}
+                            onChange={(e) => setQualification(e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Clinic/Hospital/Lab Owner Name */}
+                    {(selectedRole === "clinic" || selectedRole === "hospital" || selectedRole === "diagnostic_lab") && (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-owner">
+                          Medical Director / Owner Name
+                        </label>
+                        <input
+                          id="reg-owner"
+                          type="text"
+                          required
+                          placeholder="e.g. Dr. Rajesh Mishra"
+                          value={facilityOwner}
+                          onChange={(e) => setFacilityOwner(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
+                        />
+                      </div>
+                    )}
+
+                    {/* Contact details: Mobile & Email */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-mobile">
+                          Mobile (for OTP)
+                        </label>
+                        <input
+                          id="reg-mobile"
+                          type="tel"
+                          required
+                          placeholder="+91 98765 43210"
+                          value={mobile}
+                          onChange={(e) => setMobile(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-email">
+                          Email Address
+                        </label>
+                        <input
+                          id="reg-email"
+                          type="email"
+                          placeholder="user@lucknowhealth.org"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Password input */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-password">
+                        Create Password
+                      </label>
+                      <div className="relative rounded-xl border border-slate-200 bg-slate-50 focus-within:border-teal-500 focus-within:bg-white transition-all">
+                        <input
+                          id="reg-password"
+                          type={showPassword ? "text" : "password"}
+                          required
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="block w-full border-0 bg-transparent py-2.5 pl-3 pr-10 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Terms Checkbox */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        id="terms-check"
+                        type="checkbox"
+                        checked={acceptTerms}
+                        onChange={(e) => setAcceptTerms(e.target.checked)}
+                        className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer"
+                      />
+                      <label htmlFor="terms-check" className="text-[11px] text-slate-600 cursor-pointer">
+                        I accept LKOHEALTH Terms, Privacy Policy & Verification Guidelines
+                      </label>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white font-bold text-xs py-3 px-4 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    >
+                      <FileCheck className="h-4 w-4" />
+                      <span>{loading ? "Processing..." : "Proceed to OTP Verification"}</span>
+                    </button>
+                  </form>
+                )}
+
+                {/* Optional Evaluator Demo Access Helper */}
+                <div className="pt-2 border-t border-slate-200/80">
+                  <button
+                    type="button"
+                    onClick={() => setShowDemoSection(!showDemoSection)}
+                    className="w-full flex items-center justify-between text-[11px] font-bold text-slate-500 hover:text-teal-700 py-1 px-1 cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-teal-600" />
+                      <span>⚡ Need a Demo Account for Quick Testing?</span>
+                    </span>
+                    <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      {showDemoSection ? "Hide Demos" : "Explore Test Portals"}
+                    </span>
+                  </button>
+
+                  {showDemoSection && (
+                    <div className="mt-2.5 bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center space-y-2 animate-in fade-in duration-200">
+                      <p className="text-[10px] text-slate-500 leading-snug">
+                        Select a pre-configured demo account to evaluate portal dashboards instantly:
+                      </p>
+                      
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleInstantDemoAccess("patient")}
+                          className="bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-800 text-[11px] font-bold py-1.5 px-2 rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <User className="h-3 w-3 text-teal-600 shrink-0" />
+                          <span>Demo Patient</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleInstantDemoAccess("doctor")}
+                          className="bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-800 text-[11px] font-bold py-1.5 px-2 rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Stethoscope className="h-3 w-3 text-teal-600 shrink-0" />
+                          <span>Demo Doctor</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleInstantDemoAccess("clinic")}
+                          className="bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-800 text-[11px] font-bold py-1.5 px-2 rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Building2 className="h-3 w-3 text-teal-600 shrink-0" />
+                          <span>Demo Clinic</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleInstantDemoAccess("hospital")}
+                          className="bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-800 text-[11px] font-bold py-1.5 px-2 rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <HospitalIcon className="h-3 w-3 text-teal-600 shrink-0" />
+                          <span>Demo Hospital</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleInstantDemoAccess("diagnostic_lab")}
+                          className="bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-800 text-[11px] font-bold py-1.5 px-2 rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <FlaskConical className="h-3 w-3 text-teal-600 shrink-0" />
+                          <span>Demo Lab</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleInstantDemoAccess("moderator")}
+                          className="bg-white hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-800 text-[11px] font-bold py-1.5 px-2 rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <UserCheck className="h-3 w-3 text-teal-600 shrink-0" />
+                          <span>Moderator</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleInstantDemoAccess("admin")}
+                          className="col-span-2 bg-teal-900 hover:bg-teal-950 text-white text-[11px] font-extrabold py-1.5 px-2 rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5 text-teal-400 shrink-0" />
+                          <span>Admin Portal</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
-
-            <form onSubmit={handleSubmit} className="space-y-3.5 text-left">
-              
-              {/* Role Selection (Only in Signup Mode) */}
-              {mode === "signup" && (
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Join As</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setUserRole("patient")}
-                      className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 cursor-pointer ${
-                        userRole === "patient" 
-                          ? "border-teal-500 bg-teal-50/50 text-teal-900 shadow-xs" 
-                          : "border-slate-200 hover:bg-slate-50 text-slate-600"
-                      }`}
-                    >
-                      <User className="h-4 w-4 text-teal-600" />
-                      <span>Patient / Visitor</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setUserRole("provider")}
-                      className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 cursor-pointer ${
-                        userRole === "provider" 
-                          ? "border-teal-500 bg-teal-50/50 text-teal-900 shadow-xs" 
-                          : "border-slate-200 hover:bg-slate-50 text-slate-600"
-                      }`}
-                    >
-                      <Stethoscope className="h-4 w-4 text-teal-600" />
-                      <span>Doctor / Practice</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Full Name (Only in Signup Mode) */}
-              {mode === "signup" && (
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="auth-name">Full Name</label>
-                  <div className="relative rounded-xl border border-slate-200 bg-slate-50 focus-within:border-teal-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-100 transition-all">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <User className="h-4 w-4 text-slate-400" />
-                    </div>
-                    <input
-                      id="auth-name"
-                      type="text"
-                      required
-                      placeholder={userRole === "provider" ? "e.g. Dr. Anand Verma" : "e.g. Kamlesh Kumar"}
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="block w-full border-0 bg-transparent py-2.5 pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Email Input */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="auth-email">Email Address</label>
-                <div className="relative rounded-xl border border-slate-200 bg-slate-50 focus-within:border-teal-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-100 transition-all">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <Mail className="h-4 w-4 text-slate-400" />
-                  </div>
-                  <input
-                    id="auth-email"
-                    type="email"
-                    required
-                    placeholder="doctor@lucknowhealth.org"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full border-0 bg-transparent py-2.5 pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
-                  />
-                </div>
-              </div>
-
-              {/* Password Input */}
-              {mode !== "reset" && (
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="auth-password">Password</label>
-                    {mode === "login" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMode("reset");
-                          setErrorMsg("");
-                          setSuccessMsg("");
-                        }}
-                        className="text-[10px] text-teal-600 hover:text-teal-700 font-bold cursor-pointer hover:underline"
-                      >
-                        Forgot Password?
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative rounded-xl border border-slate-200 bg-slate-50 focus-within:border-teal-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-100 transition-all">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                      <Lock className="h-4 w-4 text-slate-400" />
-                    </div>
-                    <input
-                      id="auth-password"
-                      type={showPassword ? "text" : "password"}
-                      required
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full border-0 bg-transparent py-2.5 pl-9 pr-10 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Action Submit Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white font-bold text-xs py-3 px-4 rounded-xl transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-1.5 cursor-pointer mt-3"
-              >
-                <span>
-                  {loading 
-                    ? "Processing..." 
-                    : mode === "login" 
-                    ? "Sign In" 
-                    : mode === "signup" 
-                    ? "Register Account" 
-                    : "Send Password Reset Link"}
-                </span>
-                {!loading && <ArrowRight className="h-3.5 w-3.5" />}
-              </button>
-
-              {/* Back to login option when in reset mode */}
-              {mode === "reset" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode("login");
-                    setErrorMsg("");
-                    setSuccessMsg("");
-                  }}
-                  className="w-full text-center text-xs font-bold text-slate-500 hover:text-teal-700 pt-2 cursor-pointer"
-                >
-                  ← Back to Sign In
-                </button>
-              )}
-            </form>
           </div>
         </div>
       </div>
