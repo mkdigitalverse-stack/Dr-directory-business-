@@ -28,7 +28,9 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
   const [selectedRole, setSelectedRole] = useState<UserRole>(initialRole || "doctor");
   const [showDemoSection, setShowDemoSection] = useState(false);
   
-  // Patient Fields
+  // User Name Fields
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [mobile, setMobile] = useState("");
@@ -224,8 +226,16 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
     setErrorMsg("");
     setSuccessMsg("");
 
+    if (!firstName.trim() || !lastName.trim()) {
+      setErrorMsg("First Name and Last Name are required.");
+      return;
+    }
     if (!mobile.trim()) {
       setErrorMsg("Mobile number is required for OTP verification.");
+      return;
+    }
+    if (!email.trim()) {
+      setErrorMsg("Email address is required.");
       return;
     }
     if (!acceptTerms) {
@@ -233,39 +243,32 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
       return;
     }
 
-    if (selectedRole === "doctor" && (!medicalRegNo.trim() || !qualification.trim())) {
-      setErrorMsg("Medical Registration Number & Qualification are mandatory for Doctor registration.");
-      return;
-    }
-
-    if ((selectedRole === "clinic" || selectedRole === "hospital" || selectedRole === "diagnostic_lab") && !facilityName.trim()) {
-      setErrorMsg("Facility Name is required for registration.");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const registerEmail = email.trim() || `${mobile.replace(/\D/g, "")}@lucknowhealth.org`;
+      const registerEmail = email.trim();
       const registerPassword = password || "LucknowHealth123!";
       
-      const displayName = selectedRole === "patient" 
-        ? name.trim() 
-        : (selectedRole === "doctor" ? `Dr. ${name.trim()}` : facilityName.trim());
+      const combinedName = `${firstName.trim()} ${lastName.trim()}`;
+      const displayName = selectedRole === "doctor" 
+        ? `Dr. ${combinedName}` 
+        : (facilityName.trim() || combinedName);
 
       setPendingUserData({
         displayName,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
         email: registerEmail,
         password: registerPassword,
         mobile,
         role: selectedRole,
-        medicalRegNo,
-        qualification,
-        specialty,
-        facilityName,
-        facilityOwner,
-        address,
-        city
+        medicalRegNo: medicalRegNo || "UP-MCI-PENDING",
+        qualification: qualification || "MBBS",
+        specialty: specialty || "General Medicine",
+        facilityName: facilityName || displayName,
+        facilityOwner: facilityOwner || combinedName,
+        address: address || "Lucknow Practice Location",
+        city: city || "Lucknow"
       });
 
       // Switch to OTP Verification Modal view
@@ -816,99 +819,51 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
                       </div>
                     </div>
 
-                    {/* Basic Name Field */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-name">
-                        {selectedRole === "patient" 
-                          ? "Full Name" 
-                          : selectedRole === "doctor" 
-                          ? "Doctor's Name" 
-                          : "Facility / Practice Name"}
-                      </label>
-                      <div className="relative rounded-xl border border-slate-200 bg-slate-50 focus-within:border-teal-500 focus-within:bg-white transition-all">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                          <User className="h-4 w-4 text-slate-400" />
-                        </div>
+                    {/* Low Friction Info Banner */}
+                    <div className="bg-teal-50/70 border border-teal-200/80 rounded-2xl p-3 text-left">
+                      <p className="text-[11px] text-teal-800 font-medium leading-snug">
+                        ⚡ <strong className="font-bold">Fast Account Creation:</strong> Only 4 basic fields required to get started. No business or facility information is requested at this stage.
+                      </p>
+                    </div>
+
+                    {/* First Name & Last Name Fields */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-firstname">
+                          First Name *
+                        </label>
                         <input
-                          id="reg-name"
+                          id="reg-firstname"
                           type="text"
                           required
-                          placeholder={
-                            selectedRole === "patient" ? "e.g. Kamlesh Kumar" :
-                            selectedRole === "doctor" ? "e.g. Anand Verma" :
-                            "e.g. MedCity Healthcare Center"
-                          }
-                          value={selectedRole === "clinic" || selectedRole === "hospital" || selectedRole === "diagnostic_lab" ? facilityName : name}
-                          onChange={(e) => {
-                            if (selectedRole === "clinic" || selectedRole === "hospital" || selectedRole === "diagnostic_lab") {
-                              setFacilityName(e.target.value);
-                            } else {
-                              setName(e.target.value);
-                            }
-                          }}
-                          className="block w-full border-0 bg-transparent py-2.5 pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                          placeholder="e.g. Anand"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:bg-white transition-all"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-lastname">
+                          Last Name *
+                        </label>
+                        <input
+                          id="reg-lastname"
+                          type="text"
+                          required
+                          placeholder="e.g. Verma"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:bg-white transition-all"
                         />
                       </div>
                     </div>
-
-                    {/* Doctor Specific Fields */}
-                    {selectedRole === "doctor" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-regno">
-                            Medical Registration No (NMC)
-                          </label>
-                          <input
-                            id="reg-regno"
-                            type="text"
-                            required
-                            placeholder="e.g. UP-MCI-99120"
-                            value={medicalRegNo}
-                            onChange={(e) => setMedicalRegNo(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-qual">
-                            Qualification & Degree
-                          </label>
-                          <input
-                            id="reg-qual"
-                            type="text"
-                            required
-                            placeholder="e.g. MBBS, MD Cardiology"
-                            value={qualification}
-                            onChange={(e) => setQualification(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Clinic/Hospital/Lab Owner Name */}
-                    {(selectedRole === "clinic" || selectedRole === "hospital" || selectedRole === "diagnostic_lab") && (
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-owner">
-                          Medical Director / Owner Name
-                        </label>
-                        <input
-                          id="reg-owner"
-                          type="text"
-                          required
-                          placeholder="e.g. Dr. Rajesh Mishra"
-                          value={facilityOwner}
-                          onChange={(e) => setFacilityOwner(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
-                        />
-                      </div>
-                    )}
 
                     {/* Contact details: Mobile & Email */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-mobile">
-                          Mobile (for OTP)
+                          Mobile Number *
                         </label>
                         <input
                           id="reg-mobile"
@@ -917,21 +872,22 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
                           placeholder="+91 98765 43210"
                           value={mobile}
                           onChange={(e) => setMobile(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:bg-white transition-all"
                         />
                       </div>
 
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-email">
-                          Email Address
+                          Email Address *
                         </label>
                         <input
                           id="reg-email"
                           type="email"
+                          required
                           placeholder="user@lucknowhealth.org"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:bg-white transition-all"
                         />
                       </div>
                     </div>
@@ -939,7 +895,7 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
                     {/* Password input */}
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block" htmlFor="reg-password">
-                        Create Password
+                        Create Password *
                       </label>
                       <div className="relative rounded-xl border border-slate-200 bg-slate-50 focus-within:border-teal-500 focus-within:bg-white transition-all">
                         <input

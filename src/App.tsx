@@ -22,6 +22,7 @@ import DashboardView from "./components/DashboardView";
 import BookingModal from "./components/BookingModal";
 import ReviewModal from "./components/ReviewModal";
 import AuthModal from "./components/AuthModal";
+import ProviderOnboardingWizard from "./components/ProviderOnboardingWizard";
 
 export default function App() {
   // Global States
@@ -33,6 +34,10 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<"login" | "signup">("login");
   const [authInitialRole, setAuthInitialRole] = useState<UserRole>("doctor");
+  
+  // Provider Onboarding Wizard states
+  const [showOnboardingWizard, setShowOnboardingWizard] = useState(false);
+  const [onboardingRole, setOnboardingRole] = useState<UserRole>("doctor");
   
   // Search parameters for results view
   const [searchParams, setSearchParams] = useState<SearchParams>({
@@ -449,10 +454,98 @@ export default function App() {
           onClose={() => setShowAuthModal(false)}
           onAuthSuccess={(user, passedRole) => {
             setCurrentUser(user);
-            const [_, role] = user.displayName?.split('|') || [user.email, passedRole || 'patient'];
-            if (role !== 'patient' || user.displayName?.startsWith('Dr.')) {
+            setShowAuthModal(false);
+            const role = passedRole || (user.displayName?.split('|')[1] as UserRole) || "doctor";
+            const isProvider = role === "doctor" || role === "clinic" || role === "hospital" || role === "diagnostic_lab";
+            
+            if (isProvider) {
+              setOnboardingRole(role);
+              setShowOnboardingWizard(true);
+            } else {
               setActiveView("dashboard");
             }
+          }}
+        />
+      )}
+
+      {/* PROVIDER PROFILE CREATION ONBOARDING WIZARD */}
+      {showOnboardingWizard && currentUser && (
+        <ProviderOnboardingWizard
+          currentUser={currentUser}
+          userRole={onboardingRole}
+          onClose={() => {
+            setShowOnboardingWizard(false);
+            setActiveView("dashboard");
+          }}
+          onComplete={(onboardingData) => {
+            setShowOnboardingWizard(false);
+            
+            // Build and persist complete Provider record
+            const provId = currentUser.uid || `prov-${Date.now()}`;
+            const isDoc = onboardingRole === "doctor";
+            const isClin = onboardingRole === "clinic";
+            const isHosp = onboardingRole === "hospital";
+            const isLab = onboardingRole === "diagnostic_lab";
+
+            const newProv: Provider = {
+              id: provId,
+              name: onboardingData.practiceName || currentUser.displayName?.split('|')[0] || "Medical Practice",
+              type: isDoc ? ProviderType.DOCTOR : (isClin ? ProviderType.CLINIC : (isHosp ? ProviderType.HOSPITAL : ProviderType.LAB)),
+              email: currentUser.email,
+              phone: onboardingData.contact?.phone || "+91 98765 43210",
+              image: onboardingData.media?.coverImageUrl || "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=300",
+              verified: false,
+              medicalRegistrationNumber: onboardingData.verification?.registrationNo || "UP-MCI-PENDING",
+              qualification: onboardingData.basic?.title || "MBBS, Medical Specialist",
+              experienceYears: Number(onboardingData.basic?.experienceYears) || 5,
+              specialties: onboardingData.details?.specialties?.length ? onboardingData.details.specialties : ["General Practice"],
+              treatments: onboardingData.details?.servicesOffered?.length ? onboardingData.details.servicesOffered : ["OPD Consultation"],
+              localityId: onboardingData.location?.locality?.toLowerCase().replace(/\s+/g, '-') || "gomti-nagar",
+              cityId: "lucknow",
+              address: `${onboardingData.location?.address || 'Lucknow'}, ${onboardingData.location?.locality || 'Gomti Nagar'}`,
+              consultationFee: Number(onboardingData.details?.consultationFee) || 500,
+              languages: onboardingData.basic?.languages?.length ? onboardingData.basic.languages : ["English", "Hindi"],
+              availability: [],
+              about: onboardingData.details?.aboutPractice || "Medical practice registered on Lucknow Discovery Engine.",
+              services: onboardingData.details?.servicesOffered || ["OPD Consultation"],
+              emergencyServices: onboardingData.details?.emergencyAvailability ?? true,
+              seoScore: 88,
+              rating: 5.0,
+              reviewsCount: 0,
+              profileCompletenessScore: onboardingData.completenessScore || 85,
+              verificationStatus: "pending_verification"
+            };
+
+            setProviders(prev => [newProv, ...prev.filter(p => p.id !== provId)]);
+
+            // Save user meta
+            const metaKey = `lko_user_meta_${currentUser.uid}`;
+            const userProfile = {
+              uid: currentUser.uid,
+              name: newProv.name,
+              email: currentUser.email,
+              role: onboardingRole,
+              status: "pending_verification",
+              createdAt: new Date().toISOString().split("T")[0],
+              lastLogin: new Date().toISOString(),
+              providerId: provId,
+              profileScore: {
+                score: onboardingData.completenessScore || 85,
+                breakdown: {
+                  basicInfo: true,
+                  about: true,
+                  services: true,
+                  gallery: true,
+                  timings: true,
+                  verification: true,
+                  contact: true,
+                  faqs: false
+                }
+              }
+            };
+            localStorage.setItem(metaKey, JSON.stringify(userProfile));
+
+            setActiveView("dashboard");
           }}
         />
       )}

@@ -77,6 +77,7 @@ export interface Provider {
   type: ProviderType;
   title?: string; // e.g. "Dr."
   email?: string; // Practitioner email for portal claims
+  phone?: string;
   image: string;
   verified: boolean;
   medicalRegistrationNumber?: string;
@@ -105,6 +106,8 @@ export interface Provider {
   rating: number;
   reviewsCount: number;
   seoScore: number;
+  profileCompletenessScore?: number;
+  verificationStatus?: "pending_verification" | "verified" | "rejected";
 }
 
 export interface HealthPackage {
