@@ -10,35 +10,67 @@ import {
 import { 
   Provider, ProviderType, Appointment, Review, ViewState, UserRole, AccountStatus, UserProfile, 
   FamilyMember, VerificationDocument, AuditLog, ReceptionStaff, HospitalDepartment, LabTestItem, 
-  LabReport, AbuseReport, AdvertCampaign 
+  LabReport, AbuseReport, AdvertCampaign, ProviderVerification 
 } from "../types";
 import { LOCALITIES } from "../data";
+import ProviderFAQSection from "./ProviderFAQSection";
+import AdminVerificationDesk from "./AdminVerificationDesk";
+import VerificationUploadModal from "./VerificationUploadModal";
 
 interface DashboardViewProps {
   providers: Provider[];
   appointments: Appointment[];
   reviews: Review[];
+  verifications?: ProviderVerification[];
+  auditLogs?: AuditLog[];
   onUpdateProvider: (provider: Provider) => void;
   onUpdateAppointmentStatus: (id: string, status: Appointment["status"]) => void;
   onAddProviderListing: (newProv: Provider) => void;
   onNavigate: (view: ViewState) => void;
+  onSelectProvider?: (id: string) => void;
+  onOpenOnboarding?: (role?: UserRole) => void;
   currentUser: any;
   initialTab?: string;
-  onOpenAuth?: (mode?: "login" | "signup") => void;
+  onOpenAuth?: (mode?: "login" | "signup", role?: UserRole) => void;
+  onUpdateReview?: (updatedRev: Review) => void;
+  onOpenReviewModal?: (provider: Provider, appointment?: Appointment) => void;
+  onApproveVerification?: (verificationId: string, providerId: string, notes: string) => void;
+  onRejectVerification?: (verificationId: string, providerId: string, reason: string) => void;
+  onRequestChanges?: (verificationId: string, providerId: string, notes: string) => void;
+  onSuspendVerification?: (providerId: string, reason: string) => void;
+  onSubmitVerification?: (verificationData: Partial<ProviderVerification>) => void;
 }
 
 export default function DashboardView({ 
   providers, 
   appointments, 
   reviews, 
+  verifications = [],
+  auditLogs = [],
   onUpdateProvider, 
   onUpdateAppointmentStatus,
   onAddProviderListing,
   onNavigate,
+  onSelectProvider,
+  onOpenOnboarding,
   currentUser,
   initialTab,
-  onOpenAuth
+  onOpenAuth,
+  onUpdateReview,
+  onOpenReviewModal,
+  onApproveVerification,
+  onRejectVerification,
+  onRequestChanges,
+  onSuspendVerification,
+  onSubmitVerification
 }: DashboardViewProps) {
+
+  // Verification Upload Modal state for providers
+  const [showVerificationUploadModal, setShowVerificationUploadModal] = useState(false);
+
+  // State for rejection modal
+  const [rejectingProvider, setRejectingProvider] = useState<Provider | null>(null);
+  const [rejectionReasonText, setRejectionReasonText] = useState("");
 
   // Resolve user role & profile metadata
   const userRole: UserRole = useMemo(() => {
@@ -128,6 +160,7 @@ export default function DashboardView({
   }, [isPatient, isDoctor, isClinic, isHospital, isLab, isModerator, isAdmin]);
 
   const [dashTab, setDashTab] = useState<string>(initialTab || defaultTabForRole);
+  const [provStatusFilter, setProvStatusFilter] = useState<string>("all");
 
   useEffect(() => {
     if (!initialTab) {
@@ -235,10 +268,62 @@ export default function DashboardView({
     { id: "adv-2", title: "20% Off Dental Scaling Package", providerName: "Gomti Dental Clinic", placement: "search_top", budget: 8000, clicks: 190, impressions: 4200, status: "active" }
   ]);
 
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([
+  const [localAuditLogs, setLocalAuditLogs] = useState<AuditLog[]>([
     { id: "log-1", actorName: "Super Admin", actorRole: "admin", action: "Approved Doctor Verification", targetUser: "Dr. Anand Verma", timestamp: "2026-07-28 14:32", details: "Verified NMC Registration Certificate" },
     { id: "log-2", actorName: "Health Moderator", actorRole: "moderator", action: "Approved Review", targetUser: "Gomti Nagar Dental Clinic", timestamp: "2026-07-29 10:15", details: "Review ID rev-102 validated as genuine patient" }
   ]);
+
+  // --- QUICK ADD PRACTICE LISTING STATE ---
+  const [newListingName, setNewListingName] = useState("");
+  const [newListingType, setNewListingType] = useState<ProviderType>(ProviderType.DOCTOR);
+  const [newListingLocality, setNewListingLocality] = useState("gomti-nagar");
+  const [newListingSpecialty, setNewListingSpecialty] = useState("General Medicine");
+  const [newListingFee, setNewListingFee] = useState("500");
+  const [newListingPhone, setNewListingPhone] = useState("+91 98390 12345");
+  const [newListingAddress, setNewListingAddress] = useState("Gomti Nagar, Lucknow");
+  const [listingSuccessMsg, setListingSuccessMsg] = useState("");
+
+  const handleQuickCreateListing = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newListingName.trim()) return;
+
+    const locObj = LOCALITIES.find(l => l.id === newListingLocality);
+    const newProv: Provider = {
+      id: `prov-quick-${Date.now()}`,
+      name: newListingName.trim(),
+      type: newListingType,
+      email: currentUser?.email || "practice@lucknowhealth.org",
+      phone: newListingPhone.trim(),
+      image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=300",
+      verified: true,
+      medicalRegistrationNumber: "UP-MCI-VERIFIED",
+      qualification: "Medical Specialist",
+      experienceYears: 6,
+      specialties: [newListingSpecialty.trim()],
+      treatments: ["OPD Consultation"],
+      localityId: newListingLocality,
+      cityId: "lucknow",
+      address: newListingAddress.trim() || `${locObj?.name || 'Gomti Nagar'}, Lucknow`,
+      consultationFee: Number(newListingFee) || 500,
+      languages: ["English", "Hindi"],
+      availability: [],
+      about: "Registered healthcare provider listed on Lucknow Healthcare Directory.",
+      services: ["OPD Consultation"],
+      emergencyServices: true,
+      seoScore: 88,
+      rating: 5.0,
+      reviewsCount: 0,
+      profileCompletenessScore: 92,
+      verificationStatus: "verified"
+    };
+
+    onAddProviderListing(newProv);
+    setListingSuccessMsg(`Practice "${newProv.name}" created and added to directory!`);
+    setNewListingName("");
+    setTimeout(() => {
+      onNavigate("search");
+    }, 1500);
+  };
 
   // Verification documents state
   const [verificationDocs, setVerificationDocs] = useState<VerificationDocument[]>([
@@ -338,7 +423,7 @@ export default function DashboardView({
 
   const handleToggleUserStatus = (uid: string, newStatus: AccountStatus) => {
     setUsersList(usersList.map(u => u.uid === uid ? { ...u, status: newStatus } : u));
-    setAuditLogs([
+    setLocalAuditLogs([
       {
         id: `log-${Date.now()}`,
         actorName: currentUser?.displayName?.split("|")[0] || "Admin",
@@ -348,7 +433,7 @@ export default function DashboardView({
         timestamp: new Date().toISOString().replace("T", " ").substring(0, 16),
         details: `Updated account status for user ${uid}`
       },
-      ...auditLogs
+      ...localAuditLogs
     ]);
   };
 
@@ -467,6 +552,102 @@ export default function DashboardView({
           </div>
         </div>
 
+        {/* PROVIDER STATUS ALERT BANNER */}
+        {isProvider && activeProvider && (
+          <div className={`p-5 rounded-3xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs font-bold transition-all ${
+            activeProvider.status === "APPROVED" || activeProvider.verified
+              ? "bg-emerald-50/90 border-emerald-200 text-emerald-900 shadow-2xs"
+              : activeProvider.status === "REJECTED"
+              ? "bg-rose-50/90 border-rose-200 text-rose-900 shadow-2xs"
+              : activeProvider.status === "SUSPENDED"
+              ? "bg-slate-100 border-slate-300 text-slate-800 shadow-2xs"
+              : activeProvider.status === "DRAFT"
+              ? "bg-sky-50/90 border-sky-200 text-sky-900 shadow-2xs"
+              : "bg-amber-50/90 border-amber-200 text-amber-900 shadow-2xs"
+          }`}>
+            <div className="flex items-start gap-3">
+              {activeProvider.status === "APPROVED" || activeProvider.verified ? (
+                <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+              ) : activeProvider.status === "REJECTED" ? (
+                <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+              ) : activeProvider.status === "DRAFT" ? (
+                <FileText className="h-5 w-5 text-sky-600 shrink-0 mt-0.5" />
+              ) : (
+                <Clock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              )}
+              <div className="space-y-1">
+                <p className="font-extrabold text-sm">
+                  {activeProvider.status === "APPROVED" || activeProvider.verified
+                    ? "Live Public Profile — Verified & Active"
+                    : activeProvider.status === "REJECTED"
+                    ? "Listing Submission Rejected — Changes Required"
+                    : activeProvider.status === "SUSPENDED"
+                    ? "Listing Suspended"
+                    : activeProvider.status === "DRAFT"
+                    ? "Draft Profile — Incomplete Setup"
+                    : "Listing Status: Under Admin Review (SUBMITTED)"}
+                </p>
+                <p className="text-[11px] font-normal opacity-90">
+                  {activeProvider.status === "APPROVED" || activeProvider.verified
+                    ? "Your practice profile is publicly visible in Lucknow search results and patient bookings are active."
+                    : activeProvider.status === "REJECTED"
+                    ? "Your listing submission was reviewed by the moderation team and requires corrections before publishing."
+                    : activeProvider.status === "SUSPENDED"
+                    ? "Your listing is currently suspended. Contact platform support for reinstatement."
+                    : activeProvider.status === "DRAFT"
+                    ? "Your profile setup is saved as a draft. Complete all required fields to submit for approval."
+                    : "Your multi-step profile submission is being audited by Lucknow Healthcare Moderation Team."}
+                </p>
+
+                {activeProvider.status === "REJECTED" && activeProvider.rejectionReason && (
+                  <div className="mt-2 p-2.5 bg-white/80 border border-rose-300 rounded-xl text-rose-950 text-xs">
+                    <strong className="font-bold text-rose-800">Admin Rejection Feedback:</strong>
+                    <p className="font-normal text-[11px] mt-0.5">{activeProvider.rejectionReason}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="shrink-0 flex items-center gap-2">
+              {activeProvider.status === "REJECTED" && onOpenOnboarding && (
+                <button
+                  onClick={() => onOpenOnboarding(userRole)}
+                  className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer shadow-md shadow-rose-200"
+                >
+                  Edit Profile & Resubmit
+                </button>
+              )}
+
+              {activeProvider.status === "DRAFT" && onOpenOnboarding && (
+                <button
+                  onClick={() => onOpenOnboarding(userRole)}
+                  className="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer shadow-md shadow-sky-200"
+                >
+                  Continue Setup
+                </button>
+              )}
+
+              {(activeProvider.status === "APPROVED" || activeProvider.verified) && onSelectProvider && (
+                <button
+                  onClick={() => onSelectProvider(activeProvider.id)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer shadow-md shadow-emerald-200"
+                >
+                  View Live Profile
+                </button>
+              )}
+
+              {(activeProvider.status === "SUBMITTED" || activeProvider.status === "UNDER_REVIEW") && onSelectProvider && (
+                <button
+                  onClick={() => onSelectProvider(activeProvider.id)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer shadow-md shadow-amber-200"
+                >
+                  Preview Profile
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* MAIN SPLIT LAYOUT */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           
@@ -479,6 +660,7 @@ export default function DashboardView({
               { id: "past_appointments", label: "Past Appointments", icon: Clock },
               { id: "saved_providers", label: "Saved Providers", icon: Heart },
               { id: "family_members", label: "Family Members", icon: Users },
+              { id: "add_listing", label: "+ List Practice / Facility", icon: PlusCircle },
               { id: "notif_prefs", label: "Notification Settings", icon: Bell },
               { id: "account_settings", label: "Account Settings", icon: Settings }
             ].map((tab) => {
@@ -503,6 +685,9 @@ export default function DashboardView({
             {isDoctor && [
               { id: "analytics", label: "Overview & Analytics", icon: TrendingUp },
               { id: "appointments", label: `OPD Queue (${appointments.length})`, icon: Calendar },
+              { id: "reviews_reputation", label: "Reviews & Reputation", icon: Star },
+              { id: "faqs_manage", label: "Patient FAQs Desk", icon: HelpCircle },
+              { id: "add_listing", label: "+ Add Practice Listing", icon: PlusCircle },
               { id: "slots_timings", label: "OPD Slots & Timings", icon: Clock },
               { id: "verification", label: "NMC License Credentials", icon: ShieldCheck },
               { id: "edit_profile", label: "Clinic & Bio Settings", icon: Settings }
@@ -527,6 +712,9 @@ export default function DashboardView({
             {/* 3. CLINIC TABS */}
             {isClinic && [
               { id: "analytics", label: "Clinic Overview", icon: TrendingUp },
+              { id: "reviews_reputation", label: "Reviews & Reputation", icon: Star },
+              { id: "faqs_manage", label: "Patient FAQs Desk", icon: HelpCircle },
+              { id: "add_listing", label: "+ Add Practice Listing", icon: PlusCircle },
               { id: "doctors_roster", label: `Doctors Directory (${clinicDoctors.length})`, icon: Stethoscope },
               { id: "reception_staff", label: `Reception Staff (${receptionStaff.length})`, icon: Users },
               { id: "appointments", label: "Master Appointments", icon: Calendar },
@@ -552,6 +740,9 @@ export default function DashboardView({
             {/* 4. HOSPITAL TABS */}
             {isHospital && [
               { id: "analytics", label: "Hospital Overview", icon: TrendingUp },
+              { id: "reviews_reputation", label: "Reviews & Reputation", icon: Star },
+              { id: "faqs_manage", label: "Patient FAQs Desk", icon: HelpCircle },
+              { id: "add_listing", label: "+ Add Practice Listing", icon: PlusCircle },
               { id: "departments", label: `Departments (${departments.length})`, icon: Layers },
               { id: "hospital_doctors", label: "Doctors Directory", icon: Stethoscope },
               { id: "appointments", label: "OPD & Admissions Queue", icon: Calendar },
@@ -577,6 +768,9 @@ export default function DashboardView({
             {/* 5. DIAGNOSTIC LAB TABS */}
             {isLab && [
               { id: "analytics", label: "Lab Overview", icon: TrendingUp },
+              { id: "reviews_reputation", label: "Reviews & Reputation", icon: Star },
+              { id: "faqs_manage", label: "Patient FAQs Desk", icon: HelpCircle },
+              { id: "add_listing", label: "+ Add Practice Listing", icon: PlusCircle },
               { id: "tests_catalog", label: `Tests Catalog (${labTests.length})`, icon: FlaskConical },
               { id: "patient_reports", label: `Patient Reports (${labReports.length})`, icon: FileSpreadsheet },
               { id: "appointments", label: "Home Sample Bookings", icon: Calendar },
@@ -625,8 +819,10 @@ export default function DashboardView({
             {/* 7. ADMIN TABS */}
             {isAdmin && [
               { id: "overview_stats", label: "Platform Overview", icon: TrendingUp },
+              { id: "verification_desk", label: "Verification Governance Desk", icon: ShieldCheck },
+              { id: "reviews_moderation", label: "Reviews & Reports", icon: Star },
               { id: "user_mgmt", label: `User Accounts (${usersList.length})`, icon: Users },
-              { id: "providers_mgmt", label: `Providers (${providers.length})`, icon: ShieldCheck },
+              { id: "providers_mgmt", label: `Providers Directory (${providers.length})`, icon: ShieldCheck },
               { id: "adverts_revenue", label: `Adverts & Revenue`, icon: Megaphone },
               { id: "audit_logs", label: "System Audit Logs", icon: FileText }
             ].map((tab) => {
@@ -651,6 +847,143 @@ export default function DashboardView({
           {/* MAIN TAB CONTENT DISPLAY */}
           <div className="lg:col-span-3 space-y-6">
 
+            {/* --- ADD NEW PRACTICE LISTING PANEL --- */}
+            {dashTab === "add_listing" && (
+              <div className="bg-white rounded-3xl p-6 border border-slate-150 shadow-xs space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-150">
+                  <div>
+                    <span className="font-mono text-[10px] text-teal-800 font-extrabold uppercase tracking-wider bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-md">
+                      NEW PRACTICE LISTING
+                    </span>
+                    <h3 className="font-sans font-extrabold text-xl text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+                      <PlusCircle className="h-5 w-5 text-teal-600" />
+                      <span>List a Practice / Doctor / Facility in Lucknow</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Register medical OPDs, clinics, multi-specialty hospitals, or diagnostic laboratories on Lucknow Healthcare Directory.
+                    </p>
+                  </div>
+
+                  {onOpenAuth && (
+                    <button
+                      onClick={() => onOpenAuth("signup", "doctor")}
+                      className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl cursor-pointer shadow-sm flex items-center gap-1.5"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>Launch 6-Step Wizard</span>
+                    </button>
+                  )}
+                </div>
+
+                <form onSubmit={handleQuickCreateListing} className="space-y-4">
+                  {listingSuccessMsg && (
+                    <div className="bg-emerald-50 text-emerald-800 border border-emerald-200 p-3.5 rounded-2xl text-xs font-bold flex items-center gap-2">
+                      <CheckCircle className="h-4.5 w-4.5 text-emerald-600 shrink-0" />
+                      <span>{listingSuccessMsg}</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Practice / Provider Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Dr. Ramesh Gupta or Hazratganj Diagnostic Center"
+                        value={newListingName}
+                        onChange={(e) => setNewListingName(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-medium focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Facility Category *</label>
+                      <select
+                        value={newListingType}
+                        onChange={(e) => setNewListingType(e.target.value as ProviderType)}
+                        className="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-medium focus:ring-2 focus:ring-teal-500"
+                      >
+                        <option value={ProviderType.DOCTOR}>👨‍⚕️ Individual Doctor OPD</option>
+                        <option value={ProviderType.CLINIC}>🏥 Specialty Clinic</option>
+                        <option value={ProviderType.HOSPITAL}>🏨 Hospital / Nursing Home</option>
+                        <option value={ProviderType.LAB}>🧪 Diagnostic & Pathology Lab</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Locality in Lucknow *</label>
+                      <select
+                        value={newListingLocality}
+                        onChange={(e) => setNewListingLocality(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-medium focus:ring-2 focus:ring-teal-500"
+                      >
+                        {LOCALITIES.map((loc) => (
+                          <option key={loc.id} value={loc.id}>{loc.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Specialty / Qualification *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Cardiology, Orthopedics, MD"
+                        value={newListingSpecialty}
+                        onChange={(e) => setNewListingSpecialty(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-medium focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Consultation Fee (₹)</label>
+                      <input
+                        type="number"
+                        placeholder="500"
+                        value={newListingFee}
+                        onChange={(e) => setNewListingFee(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-medium focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Contact Phone Number *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="+91 98390 12345"
+                        value={newListingPhone}
+                        onChange={(e) => setNewListingPhone(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-medium focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Full Clinic / Facility Address *</label>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="e.g. Plot 12, Main Road, Near Sahara Hospital, Gomti Nagar, Lucknow"
+                      value={newListingAddress}
+                      onChange={(e) => setNewListingAddress(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-medium focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="submit"
+                      className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs px-6 py-3 rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-2"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Submit Practice Listing & Save</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
             {/* --- PATIENT VIEWS --- */}
             {isPatient && (dashTab === "upcoming_appointments" || dashTab === "past_appointments") && (
               <div className="bg-white rounded-3xl p-6 border border-slate-150 shadow-xs space-y-4">
@@ -672,30 +1005,80 @@ export default function DashboardView({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {appointments.map((apt) => (
-                      <div key={apt.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                        <div>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                            apt.status === "confirmed" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
-                          }`}>
-                            {apt.status}
-                          </span>
-                          <h4 className="font-bold text-slate-900 mt-1">{apt.providerName}</h4>
-                          <p className="text-xs text-slate-500">📅 {apt.date} at 🕒 {apt.time}</p>
-                          <p className="text-xs text-slate-600 mt-1">Patient: <strong>{apt.patientName}</strong> ({apt.patientPhone})</p>
+                    {appointments.map((apt) => {
+                      const isCompleted = apt.status === "completed" || apt.status === "COMPLETED";
+                      const hasReviewed = reviews.some(r => r.appointmentId === apt.id);
+                      const targetProvider = providers.find(p => p.id === apt.providerId);
+
+                      return (
+                        <div key={apt.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                                isCompleted
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : apt.status === "confirmed"
+                                  ? "bg-sky-100 text-sky-800"
+                                  : apt.status === "cancelled"
+                                  ? "bg-rose-100 text-rose-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}>
+                                {apt.status}
+                              </span>
+                              {isCompleted && (
+                                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                                  Verified Interaction
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="font-bold text-slate-900 mt-1">{apt.providerName}</h4>
+                            <p className="text-xs text-slate-500">📅 {apt.date} at 🕒 {apt.time}</p>
+                            <p className="text-xs text-slate-600 mt-1">Patient: <strong>{apt.patientName}</strong> ({apt.patientPhone})</p>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            {!isCompleted && apt.status !== "cancelled" && (
+                              <>
+                                <button
+                                  onClick={() => onUpdateAppointmentStatus(apt.id, "completed")}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer shadow-2xs"
+                                >
+                                  Mark Completed
+                                </button>
+                                <button
+                                  onClick={() => onUpdateAppointmentStatus(apt.id, "cancelled")}
+                                  className="bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
+                                >
+                                  Cancel Booking
+                                </button>
+                              </>
+                            )}
+
+                            {isCompleted && (
+                              hasReviewed ? (
+                                <span className="bg-emerald-50 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-xl border border-emerald-200 flex items-center gap-1.5">
+                                  <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                                  <span>Review Submitted</span>
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    if (targetProvider && onOpenReviewModal) {
+                                      onOpenReviewModal(targetProvider, apt);
+                                    }
+                                  }}
+                                  className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-2xs cursor-pointer flex items-center gap-1.5"
+                                >
+                                  <Star className="h-3.5 w-3.5 fill-white stroke-none" />
+                                  <span>Write Verified Review</span>
+                                </button>
+                              )
+                            )}
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          {apt.status !== "cancelled" && (
-                            <button
-                              onClick={() => onUpdateAppointmentStatus(apt.id, "cancelled")}
-                              className="bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
-                            >
-                              Cancel Booking
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -793,6 +1176,22 @@ export default function DashboardView({
                     </label>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* --- PROVIDER FAQ MANAGEMENT DESK --- */}
+            {dashTab === "faqs_manage" && activeProvider && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <ProviderFAQSection 
+                  provider={activeProvider}
+                  currentUser={currentUser}
+                  onUpdateFaqs={(updatedFaqs) => {
+                    onUpdateProvider({
+                      ...activeProvider,
+                      faqs: updatedFaqs
+                    });
+                  }}
+                />
               </div>
             )}
 
@@ -1229,6 +1628,474 @@ export default function DashboardView({
               </div>
             )}
 
+            {/* --- PROVIDER REVIEWS & REPUTATION DESK --- */}
+            {isProvider && activeProvider && dashTab === "reviews_reputation" && (() => {
+              const providerReviews = reviews.filter(r => r.providerId === activeProvider.id);
+              const publishedReviews = providerReviews.filter(r => r.status === "PUBLISHED" || r.status === "published" || !r.status);
+              const verifiedReviews = publishedReviews.filter(r => r.isVerified || r.verified);
+
+              return (
+                <div className="bg-white rounded-3xl p-6 border border-slate-150 shadow-xs space-y-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-150">
+                    <div>
+                      <span className="font-mono text-[10px] text-amber-800 font-extrabold uppercase tracking-wider bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-md">
+                        REPUTATION & FEEDBACK MANAGEMENT
+                      </span>
+                      <h3 className="font-sans font-extrabold text-xl text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+                        <Star className="h-5 w-5 text-amber-500 fill-amber-500" />
+                        <span>Patient Reviews & Satisfaction Metrics</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Monitor verified patient reviews, track overall rating metrics, and respond professionally to patient feedback.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => onNavigate("profile")}
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-4 py-2 rounded-xl cursor-pointer"
+                    >
+                      View Public Profile Reviews
+                    </button>
+                  </div>
+
+                  {/* SUMMARY CARDS */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-4 bg-amber-50/60 border border-amber-200/80 rounded-2xl flex items-center gap-4">
+                      <div className="p-3 bg-amber-500 text-white rounded-xl">
+                        <Star className="h-6 w-6 fill-white stroke-none" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-amber-800 uppercase">Average Rating</p>
+                        <p className="text-2xl font-black text-amber-900 font-mono">{activeProvider.rating.toFixed(1)} / 5.0</p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-teal-50/60 border border-teal-200/80 rounded-2xl flex items-center gap-4">
+                      <div className="p-3 bg-teal-600 text-white rounded-xl">
+                        <CheckCircle className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-teal-800 uppercase">Published Reviews</p>
+                        <p className="text-2xl font-black text-teal-900 font-mono">{publishedReviews.length}</p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl flex items-center gap-4">
+                      <div className="p-3 bg-emerald-600 text-white rounded-xl">
+                        <ShieldCheck className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-emerald-800 uppercase">Verified Patient Reviews</p>
+                        <p className="text-2xl font-black text-emerald-900 font-mono">{verifiedReviews.length}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* GOVERNANCE RULES NOTICE */}
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-600 space-y-1">
+                    <p className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <ShieldCheck className="h-4 w-4 text-teal-600" />
+                      <span>Provider Reputation Protection Rules:</span>
+                    </p>
+                    <p className="text-[11px] leading-relaxed">
+                      • Providers cannot delete patient reviews, modify ratings, or mark arbitrary reviews as verified.<br />
+                      • Verified badges are system-controlled and strictly granted based on confirmed appointment records.<br />
+                      • If a review contains abusive, misleading, or privacy-violating content, flag it for moderation review.
+                    </p>
+                  </div>
+
+                  {/* REVIEWS LIST */}
+                  <div className="space-y-4">
+                    <h4 className="font-bold text-sm text-slate-900">Patient Reviews ({publishedReviews.length})</h4>
+
+                    {publishedReviews.length === 0 ? (
+                      <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-2xl space-y-2">
+                        <Star className="h-8 w-8 text-slate-300 mx-auto" />
+                        <p className="text-xs text-slate-500 font-bold">No published reviews received yet.</p>
+                        <p className="text-[11px] text-slate-400">Patients can leave verified reviews after completing OPD appointments.</p>
+                      </div>
+                    ) : (
+                      publishedReviews.map((rev) => (
+                        <div key={rev.id} className="p-4 bg-slate-50/80 border border-slate-200 rounded-2xl space-y-3">
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 text-sm">{rev.patientName}</span>
+                              {(rev.isVerified || rev.verified) && (
+                                <span className="bg-teal-50 text-teal-800 text-[10px] font-extrabold px-2 py-0.5 rounded border border-teal-200 flex items-center gap-1">
+                                  <ShieldCheck className="h-3 w-3 text-teal-600" />
+                                  Verified Patient
+                                </span>
+                              )}
+                              <span className="text-[11px] font-mono text-slate-400">{rev.date}</span>
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`h-4 w-4 ${
+                                    star <= rev.rating ? "text-amber-400 fill-amber-400" : "text-slate-200"
+                                  }`}
+                                />
+                              ))}
+                              <span className="font-mono text-xs font-bold text-slate-700 ml-1">{rev.rating}.0</span>
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-slate-700 leading-relaxed font-normal bg-white p-3 rounded-xl border border-slate-100">
+                            "{rev.comment || rev.reviewText}"
+                          </p>
+
+                          {/* CATEGORY RATINGS BREAKDOWN */}
+                          {(rev.metrics || rev.doctorBehaviour) && (
+                            <div className="flex flex-wrap gap-2 text-[10px]">
+                              {rev.doctorBehaviour && <span className="bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded">Doctor: {rev.doctorBehaviour}/5</span>}
+                              {rev.staffBehaviour && <span className="bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded">Staff: {rev.staffBehaviour}/5</span>}
+                              {rev.waitingTime && <span className="bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded">Wait Time: {rev.waitingTime}/5</span>}
+                              {rev.cleanliness && <span className="bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded">Cleanliness: {rev.cleanliness}/5</span>}
+                              {rev.communication && <span className="bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded">Communication: {rev.communication}/5</span>}
+                              {rev.treatmentSatisfaction && <span className="bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded">Satisfaction: {rev.treatmentSatisfaction}/5</span>}
+                            </div>
+                          )}
+
+                          {/* PROVIDER RESPONSE DISPLAY / EDIT FORM */}
+                          {rev.providerResponse ? (
+                            <div className="mt-2 p-3 bg-teal-50/70 border border-teal-200 rounded-xl space-y-1">
+                              <p className="text-[11px] font-bold text-teal-900 flex items-center justify-between">
+                                <span>Official Response from Practice:</span>
+                                <span className="font-mono text-[10px] text-teal-600">{rev.providerResponseDate || "Recently"}</span>
+                              </p>
+                              <p className="text-xs text-teal-950 font-normal">{rev.providerResponse}</p>
+                            </div>
+                          ) : (
+                            <div className="pt-2 border-t border-slate-200/80 space-y-2">
+                              <details className="group">
+                                <summary className="text-xs font-bold text-teal-700 hover:text-teal-800 cursor-pointer flex items-center gap-1">
+                                  <span>+ Add Official Provider Response</span>
+                                </summary>
+                                <form
+                                  onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const form = e.currentTarget;
+                                    const respInput = form.elements.namedItem("response") as HTMLInputElement;
+                                    if (respInput && respInput.value.trim() && onUpdateReview) {
+                                      onUpdateReview({
+                                        ...rev,
+                                        providerResponse: respInput.value.trim(),
+                                        providerResponseDate: new Date().toISOString().split("T")[0]
+                                      });
+                                    }
+                                  }}
+                                  className="mt-2 space-y-2"
+                                >
+                                  <textarea
+                                    name="response"
+                                    required
+                                    rows={2}
+                                    placeholder="Write a courteous professional response..."
+                                    className="w-full bg-white border border-slate-200 p-2.5 text-xs rounded-xl focus:outline-none focus:border-teal-500"
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl cursor-pointer shadow-2xs"
+                                  >
+                                    Post Official Response
+                                  </button>
+                                </form>
+                              </details>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* --- ADMIN & MODERATOR REVIEWS & REPORTS DESK --- */}
+            {(isAdmin || isModerator) && (dashTab === "reviews_moderation" || dashTab === "review_moderation") && (() => {
+              const [statusFilter, setStatusFilter] = useState<string>("all");
+
+              const filteredReviews = reviews.filter(r => {
+                if (statusFilter === "all") return true;
+                const rStatus = (r.status || "PUBLISHED").toUpperCase();
+                return rStatus === statusFilter.toUpperCase();
+              });
+
+              return (
+                <div className="bg-white rounded-3xl p-6 border border-slate-150 shadow-xs space-y-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-150">
+                    <div>
+                      <span className="font-mono text-[10px] text-teal-800 font-extrabold uppercase tracking-wider bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-md">
+                        MODERATION & AUDIT DESK
+                      </span>
+                      <h3 className="font-sans font-extrabold text-xl text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+                        <Star className="h-5 w-5 text-amber-500 fill-amber-500" />
+                        <span>Patient Reviews & Abuse Reports Moderation</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Review submitted feedback, resolve reported reviews, and enforce verified ratings integrity.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-500">Filter Status:</span>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 px-3 py-1.5 rounded-xl focus:outline-none focus:border-teal-500"
+                      >
+                        <option value="all">All Reviews ({reviews.length})</option>
+                        <option value="PUBLISHED">Published ({reviews.filter(r => !r.status || r.status.toUpperCase() === "PUBLISHED").length})</option>
+                        <option value="PENDING">Pending Approval ({reviews.filter(r => r.status && r.status.toUpperCase() === "PENDING").length})</option>
+                        <option value="FLAGGED">Flagged / Reported ({reviews.filter(r => r.status && r.status.toUpperCase() === "FLAGGED").length})</option>
+                        <option value="REJECTED">Rejected ({reviews.filter(r => r.status && r.status.toUpperCase() === "REJECTED").length})</option>
+                        <option value="REMOVED">Removed ({reviews.filter(r => r.status && r.status.toUpperCase() === "REMOVED").length})</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {filteredReviews.length === 0 ? (
+                      <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-2xl">
+                        <p className="text-xs text-slate-500 font-bold">No reviews found matching filter "{statusFilter}".</p>
+                      </div>
+                    ) : (
+                      filteredReviews.map((rev) => {
+                        const currentProv = providers.find(p => p.id === rev.providerId);
+                        const revStatus = (rev.status || "PUBLISHED").toUpperCase();
+
+                        return (
+                          <div key={rev.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-slate-900 text-sm">{rev.patientName}</span>
+                                  <span className="text-xs text-slate-500 font-normal">→ target: <strong>{currentProv?.name || rev.providerId}</strong></span>
+                                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${
+                                    revStatus === "PUBLISHED"
+                                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                      : revStatus === "FLAGGED"
+                                      ? "bg-rose-50 text-rose-800 border-rose-200"
+                                      : revStatus === "REJECTED" || revStatus === "REMOVED"
+                                      ? "bg-slate-200 text-slate-800 border-slate-300"
+                                      : "bg-amber-50 text-amber-800 border-amber-200"
+                                  }`}>
+                                    {revStatus}
+                                  </span>
+                                  {(rev.isVerified || rev.verified) && (
+                                    <span className="bg-teal-50 text-teal-800 text-[10px] font-extrabold px-1.5 py-0.5 rounded border border-teal-200 flex items-center gap-1">
+                                      <ShieldCheck className="h-3 w-3 text-teal-600" />
+                                      Appointment Verified
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                                  ID: {rev.id} {rev.appointmentId ? `• Apt ID: ${rev.appointmentId}` : ""} • Date: {rev.date}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                {[1, 2, 3, 4, 5].map((s) => (
+                                  <Star
+                                    key={s}
+                                    className={`h-4 w-4 ${
+                                      s <= rev.rating ? "text-amber-400 fill-amber-400" : "text-slate-200"
+                                    }`}
+                                  />
+                                ))}
+                                <span className="font-mono text-xs font-bold text-slate-700 ml-1">{rev.rating}.0</span>
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-slate-700 bg-white p-3 rounded-xl border border-slate-100 leading-relaxed font-normal">
+                              "{rev.comment || rev.reviewText}"
+                            </p>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-slate-200/80">
+                              <span className="text-[11px] text-slate-500 font-mono">
+                                Patient UID: {rev.patientUid || "Anonymized"}
+                              </span>
+
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {revStatus !== "PUBLISHED" && (
+                                  <button
+                                    onClick={() => {
+                                      if (onUpdateReview) {
+                                        onUpdateReview({ ...rev, status: "PUBLISHED" });
+                                      }
+                                    }}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl cursor-pointer shadow-2xs"
+                                  >
+                                    Approve & Publish
+                                  </button>
+                                )}
+
+                                {revStatus !== "FLAGGED" && (
+                                  <button
+                                    onClick={() => {
+                                      if (onUpdateReview) {
+                                        onUpdateReview({ ...rev, status: "FLAGGED" });
+                                      }
+                                    }}
+                                    className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl cursor-pointer shadow-2xs"
+                                  >
+                                    Flag for Audit
+                                  </button>
+                                )}
+
+                                {revStatus !== "REJECTED" && (
+                                  <button
+                                    onClick={() => {
+                                      if (onUpdateReview) {
+                                        onUpdateReview({ ...rev, status: "REJECTED" });
+                                      }
+                                    }}
+                                    className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs px-3 py-1.5 rounded-xl cursor-pointer"
+                                  >
+                                    Reject
+                                  </button>
+                                )}
+
+                                {revStatus !== "REMOVED" && (
+                                  <button
+                                    onClick={() => {
+                                      if (onUpdateReview) {
+                                        onUpdateReview({ ...rev, status: "REMOVED" });
+                                      }
+                                    }}
+                                    className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs px-3 py-1.5 rounded-xl cursor-pointer"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {isAdmin && dashTab === "providers_mgmt" && (
+              <div className="bg-white rounded-3xl p-6 border border-slate-150 shadow-xs space-y-5">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div>
+                    <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                      <ShieldCheck className="h-5 w-5 text-teal-600" />
+                      <span>Provider Listings & Status Moderation</span>
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Enforce verification standards, review registration credentials, and manage public search visibility.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-500">Filter Status:</span>
+                    <select
+                      value={provStatusFilter}
+                      onChange={(e) => setProvStatusFilter(e.target.value)}
+                      className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 px-3 py-1.5 rounded-xl focus:outline-none focus:border-teal-500"
+                    >
+                      <option value="all">All Providers ({providers.length})</option>
+                      <option value="SUBMITTED">Submitted ({providers.filter(p => p.status === "SUBMITTED" || p.status === "UNDER_REVIEW").length})</option>
+                      <option value="APPROVED">Approved ({providers.filter(p => p.status === "APPROVED" || (!p.status && p.verified)).length})</option>
+                      <option value="REJECTED">Rejected ({providers.filter(p => p.status === "REJECTED").length})</option>
+                      <option value="SUSPENDED">Suspended ({providers.filter(p => p.status === "SUSPENDED").length})</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {providers
+                    .filter(p => {
+                      if (provStatusFilter === "all") return true;
+                      if (provStatusFilter === "SUBMITTED") return p.status === "SUBMITTED" || p.status === "UNDER_REVIEW";
+                      if (provStatusFilter === "APPROVED") return p.status === "APPROVED" || (!p.status && p.verified);
+                      return p.status === provStatusFilter;
+                    })
+                    .map((p) => {
+                      const effectiveStatus = p.status || (p.verified ? "APPROVED" : "SUBMITTED");
+                      return (
+                        <div key={p.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-slate-900 text-sm">{p.name}</span>
+                              <span className="font-mono text-[10px] bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded font-bold uppercase">
+                                {p.type}
+                              </span>
+                              <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${
+                                effectiveStatus === "APPROVED"
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                  : effectiveStatus === "REJECTED"
+                                  ? "bg-rose-50 text-rose-800 border-rose-200"
+                                  : effectiveStatus === "SUSPENDED"
+                                  ? "bg-slate-200 text-slate-800 border-slate-300"
+                                  : "bg-amber-50 text-amber-800 border-amber-200"
+                              }`}>
+                                {effectiveStatus}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-slate-600">
+                              Reg No: <strong className="font-mono">{p.medicalRegistrationNumber || "N/A"}</strong> • Locality: {p.address}
+                            </p>
+                            <p className="text-[11px] text-slate-400 font-mono">
+                              Owner UID: {p.ownerUid || p.id} • Fee: ₹{p.consultationFee}
+                            </p>
+                          </div>
+
+                          <div className="flex gap-2 flex-wrap shrink-0">
+                            {onSelectProvider && (
+                              <button
+                                onClick={() => onSelectProvider(p.id)}
+                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
+                              >
+                                Inspect
+                              </button>
+                            )}
+
+                            {effectiveStatus !== "APPROVED" && (
+                              <button
+                                onClick={() => onUpdateProvider({ ...p, status: "APPROVED", verified: true, rejectionReason: undefined })}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer shadow-2xs"
+                              >
+                                Approve & Publish
+                              </button>
+                            )}
+
+                            {effectiveStatus !== "REJECTED" && (
+                              <button
+                                onClick={() => {
+                                  setRejectingProvider(p);
+                                  setRejectionReasonText(p.rejectionReason || "Medical registration certificate missing or illegible. Please re-upload valid NMC documentation.");
+                                }}
+                                className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
+                              >
+                                Reject...
+                              </button>
+                            )}
+
+                            {effectiveStatus !== "SUSPENDED" && (
+                              <button
+                                onClick={() => onUpdateProvider({ ...p, status: "SUSPENDED", verified: false })}
+                                className="bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
+                              >
+                                Suspend
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
             {isAdmin && dashTab === "audit_logs" && (
               <div className="bg-white rounded-3xl p-6 border border-slate-150 shadow-xs space-y-4">
                 <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
@@ -1236,7 +2103,7 @@ export default function DashboardView({
                   <span>Platform System Audit Trail</span>
                 </h3>
                 <div className="space-y-2">
-                  {auditLogs.map((log) => (
+                  {[...auditLogs, ...localAuditLogs].map((log) => (
                     <div key={log.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs flex justify-between items-center">
                       <div>
                         <p className="font-bold text-slate-900">{log.action} <span className="text-slate-500 font-normal">by {log.actorName} ({log.actorRole})</span></p>
@@ -1249,11 +2116,182 @@ export default function DashboardView({
               </div>
             )}
 
+            {/* --- VERIFICATION GOVERNANCE DESK (ADMIN / MODERATOR) --- */}
+            {(isAdmin || isModerator) && (dashTab === "verification_desk" || dashTab === "verification_support") && (
+              <AdminVerificationDesk
+                verifications={verifications}
+                providers={providers}
+                auditLogs={auditLogs}
+                onApproveVerification={onApproveVerification || (() => {})}
+                onRejectVerification={onRejectVerification || (() => {})}
+                onRequestChanges={onRequestChanges || (() => {})}
+                onSuspendVerification={onSuspendVerification || (() => {})}
+              />
+            )}
+
+            {/* --- PROVIDER VERIFICATION STATUS TAB --- */}
+            {isProvider && activeProvider && dashTab === "verification" && (
+              <div className="bg-white rounded-3xl p-6 border border-slate-150 shadow-xs space-y-6 text-left">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-150">
+                  <div>
+                    <span className="font-mono text-[10px] text-teal-700 font-extrabold uppercase tracking-wider bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-md">
+                      PROVIDER CREDENTIAL VERIFICATION
+                    </span>
+                    <h3 className="font-sans font-extrabold text-xl text-slate-900 tracking-tight mt-1 flex items-center gap-2">
+                      <ShieldCheck className="h-5 w-5 text-teal-600" />
+                      <span>NMC License & Medical Council Audit Desk</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Submit official state council registrations, clinic establishment licenses, and qualification degrees to earn the "Verified Provider" trust signal on Lucknow Health Directory.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setShowVerificationUploadModal(true)}
+                    className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl cursor-pointer shadow-md shadow-teal-100 flex items-center gap-2 transition-all shrink-0"
+                  >
+                    <Upload className="h-4 w-4" />
+                    <span>Submit Documents for Audit</span>
+                  </button>
+                </div>
+
+                {/* CURRENT VERIFICATION STATUS CARD */}
+                <div className={`p-5 rounded-2xl border flex items-start gap-4 ${
+                  activeProvider.verified
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-950"
+                    : activeProvider.verificationStatus === "VERIFICATION_PENDING"
+                    ? "bg-amber-50 border-amber-200 text-amber-950"
+                    : activeProvider.verificationStatus === "VERIFICATION_REJECTED"
+                    ? "bg-rose-50 border-rose-200 text-rose-950"
+                    : "bg-slate-50 border-slate-200 text-slate-800"
+                }`}>
+                  <div className={`p-3 rounded-xl shrink-0 ${
+                    activeProvider.verified
+                      ? "bg-emerald-600 text-white"
+                      : activeProvider.verificationStatus === "VERIFICATION_PENDING"
+                      ? "bg-amber-500 text-white"
+                      : "bg-slate-600 text-white"
+                  }`}>
+                    <ShieldCheck className="h-6 w-6" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="font-extrabold text-sm">
+                      {activeProvider.verified
+                        ? "Verified Provider — Council License Authenticated"
+                        : activeProvider.verificationStatus === "VERIFICATION_PENDING"
+                        ? "Verification Under Review by Governance Panel"
+                        : activeProvider.verificationStatus === "VERIFICATION_REJECTED"
+                        ? "Verification Documents Rejected"
+                        : "Approved Listing — Verification Pending"}
+                    </p>
+                    <p className="text-xs font-normal opacity-90 leading-relaxed">
+                      {activeProvider.verified
+                        ? "Your medical registration and facility credentials have been validated against official NMC/State registries. Your public profile displays the verified badge."
+                        : activeProvider.verificationStatus === "VERIFICATION_PENDING"
+                        ? "Your document submission is currently being reviewed by Lucknow Healthcare moderation officers. Verification decision will be updated within 24-48 hours."
+                        : "Your listing is approved for basic directory display. Upload state council credentials to receive the official Verified Provider badge."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-2">
+                  <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                    <Lock className="h-4 w-4 text-teal-600" />
+                    <span>Governance & Document Confidentiality Standards:</span>
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1 text-slate-600 text-[11px] font-normal">
+                    <li>Registration numbers and license documents are accessible exclusively to authorized governance officers.</li>
+                    <li>Uploaded credentials are cross-referenced with UP Medical Council, NMC, and Dental Council databases.</li>
+                    <li>For questions or assistance regarding provider verification policy, contact <span className="font-bold text-teal-700">governance@lucknow.healthcare.directory</span>.</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
           </div>
 
         </div>
 
       </div>
+
+      {/* ADMIN REJECTION REASON MODAL */}
+      {rejectingProvider && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-slate-100 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-rose-700 font-extrabold text-base">
+                <AlertTriangle className="h-5 w-5 shrink-0" />
+                <span>Reject Provider Submission</span>
+              </div>
+              <button
+                onClick={() => setRejectingProvider(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-slate-600">
+                Provide a clear reason and required correction for <strong className="font-bold text-slate-900">{rejectingProvider.name}</strong>. This message will be displayed on the provider's dashboard so they can edit and resubmit.
+              </p>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block">Rejection Reason & Required Correction *</label>
+                <textarea
+                  rows={4}
+                  required
+                  value={rejectionReasonText}
+                  onChange={(e) => setRejectionReasonText(e.target.value)}
+                  placeholder="e.g. NMC registration certificate copy is blurry. Please upload a clear scanned PDF of your UP state council license."
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 focus:outline-none focus:border-rose-500 focus:bg-white transition-all font-sans"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setRejectingProvider(null)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!rejectionReasonText.trim()}
+                onClick={() => {
+                  onUpdateProvider({
+                    ...rejectingProvider,
+                    status: "REJECTED",
+                    verified: false,
+                    rejectionReason: rejectionReasonText.trim()
+                  });
+                  setRejectingProvider(null);
+                }}
+                className="bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white text-xs font-bold px-5 py-2 rounded-xl transition-all cursor-pointer shadow-md shadow-rose-200"
+              >
+                Confirm Rejection & Notify Provider
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PROVIDER VERIFICATION UPLOAD MODAL */}
+      {showVerificationUploadModal && activeProvider && (
+        <VerificationUploadModal
+          provider={activeProvider}
+          onClose={() => setShowVerificationUploadModal(false)}
+          onSubmitVerification={(data) => {
+            if (onSubmitVerification) {
+              onSubmitVerification(data);
+            }
+            setShowVerificationUploadModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }

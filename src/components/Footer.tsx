@@ -121,17 +121,48 @@ export default function Footer({ onNavigate, onSelectCategory, onSearchSpecialty
 
       {/* Bottom Sub-Footer */}
       <div className="border-t border-slate-800 bg-slate-950 py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px]">
-          <p className="text-slate-500 font-mono">
-            &copy; {currentYear} LKOHEALTH Directory. Designed for nationwide medical registry scale.
-          </p>
-          <div className="flex flex-wrap gap-6 text-slate-500">
-            <a href="#privacy" className="hover:text-slate-300 transition-colors">Privacy Policy</a>
-            <a href="#terms" className="hover:text-slate-300 transition-colors">Terms of Service</a>
-            <a href="#disclaimer" className="hover:text-slate-300 transition-colors">Medical Disclaimer</a>
-            <span className="flex items-center gap-1.5 text-slate-600">
-              Made with <Heart className="h-3 w-3 text-rose-500 fill-rose-500" /> in Uttar Pradesh
-            </span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4 text-[11px]">
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 text-slate-400">
+            <p className="font-mono text-slate-500">
+              &copy; {currentYear} LKOHEALTH Directory.
+            </p>
+            <span className="hidden sm:inline text-slate-700">•</span>
+            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-3 py-1 rounded-full text-slate-300 shadow-xs">
+              <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Website Created By</span>
+              <a 
+                href="https://www.mkdigitalverse.in" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-teal-400 hover:text-teal-300 font-bold hover:underline transition-colors flex items-center gap-1"
+              >
+                <span>MK Digitalverse</span>
+                <span className="text-slate-500 font-normal text-[10px]">(www.mkdigitalverse.in)</span>
+                <ArrowUpRight className="h-3 w-3 text-teal-400" />
+              </a>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-4 text-slate-500">
+            <button onClick={() => onNavigate("privacy_policy")} className="hover:text-slate-300 transition-colors text-left cursor-pointer">
+              Privacy Policy
+            </button>
+            <button onClick={() => onNavigate("terms")} className="hover:text-slate-300 transition-colors text-left cursor-pointer">
+              Terms of Service
+            </button>
+            <button onClick={() => onNavigate("medical_disclaimer")} className="hover:text-slate-300 transition-colors text-left cursor-pointer">
+              Medical Disclaimer
+            </button>
+            <button onClick={() => onNavigate("review_policy")} className="hover:text-slate-300 transition-colors text-left cursor-pointer">
+              Review Policy
+            </button>
+            <button onClick={() => onNavigate("provider_verification_policy")} className="hover:text-slate-300 transition-colors text-left cursor-pointer">
+              Verification Policy
+            </button>
+            <button onClick={() => onNavigate("editorial_policy")} className="hover:text-slate-300 transition-colors text-left cursor-pointer">
+              Editorial Policy
+            </button>
+            <button onClick={() => onNavigate("contact")} className="hover:text-slate-300 transition-colors text-left cursor-pointer">
+              Contact Governance
+            </button>
           </div>
         </div>
       </div>

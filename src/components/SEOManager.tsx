@@ -57,6 +57,13 @@ export default function SEOManager({ view, provider, locality, specialty }: SEOM
       tag.setAttribute(attribute, val);
     };
 
+    // Indexing safety: set robots directive
+    const isPrivateView = ["dashboard", "admin", "verification"].includes(view) || 
+      (view === "profile" && provider && provider.status && provider.status !== "APPROVED");
+    
+    const robotsDirective = isPrivateView ? "noindex, nofollow" : "index, follow";
+    updateMetaTag("meta[name='robots']", "content", robotsDirective);
+
     updateMetaTag("meta[name='description']", "content", description);
     updateMetaTag("meta[property='og:title']", "content", title);
     updateMetaTag("meta[property='og:description']", "content", description);

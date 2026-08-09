@@ -1,0 +1,187 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Authenticated user account record containing personal details and ownership links.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "mobile": { "type": "string" },
+        "role": { "type": "string", "enum": ["patient", "provider", "admin", "doctor", "clinic", "hospital", "diagnostic_lab"] },
+        "status": { "type": "string", "enum": ["active", "pending_verification", "suspended"] },
+        "providerIds": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "firstName", "lastName", "email", "mobile", "role"]
+    },
+    "Provider": {
+      "title": "Provider",
+      "description": "Healthcare provider listing profile (Doctor, Clinic, Hospital, Diagnostic Lab).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["doctor", "clinic", "hospital", "diagnostic_lab"] },
+        "status": { "type": "string", "enum": ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED", "SUSPENDED"] },
+        "medicalRegistrationNumber": { "type": "string" },
+        "qualification": { "type": "string" },
+        "experienceYears": { "type": "number" },
+        "specialties": { "type": "array" },
+        "services": { "type": "array" },
+        "locations": { "type": "array" },
+        "localityId": { "type": "string" },
+        "cityId": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "consultationFee": { "type": "number" },
+        "about": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "rating": { "type": "number" },
+        "reviewsCount": { "type": "number" }
+      },
+      "required": ["id", "ownerUid", "name", "type", "status"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Patient appointment booking record for a healthcare provider.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientUid": { "type": "string" },
+        "providerId": { "type": "string" },
+        "providerOwnerUid": { "type": "string" },
+        "providerName": { "type": "string" },
+        "providerType": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "locationId": { "type": "string" },
+        "locationAddress": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW", "pending", "confirmed", "cancelled", "completed"] },
+        "patientName": { "type": "string" },
+        "patientMobile": { "type": "string" },
+        "patientEmail": { "type": "string" },
+        "patientNote": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "providerId", "date", "time", "patientName", "patientMobile", "status"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Patient review and ratings for a provider.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reviewId": { "type": "string" },
+        "providerId": { "type": "string" },
+        "patientUid": { "type": "string" },
+        "appointmentId": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "reviewText": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "PUBLISHED", "REJECTED", "FLAGGED", "REMOVED"] },
+        "isVerified": { "type": "boolean" },
+        "patientName": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "providerId", "appointmentId", "rating", "status"]
+    },
+    "ReviewReport": {
+      "title": "ReviewReport",
+      "description": "Patient or provider report against an inappropriate review.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reviewId": { "type": "string" },
+        "providerId": { "type": "string" },
+        "reportedByUid": { "type": "string" },
+        "reason": { "type": "string" },
+        "details": { "type": "string" },
+        "status": { "type": "string", "enum": ["OPEN", "UNDER_REVIEW", "RESOLVED", "DISMISSED"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "reviewId", "reportedByUid", "reason", "status"]
+    },
+    "ProviderVerification": {
+      "title": "ProviderVerification",
+      "description": "Provider identity, medical registration credentials, and practice location verification entity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "providerId": { "type": "string" },
+        "requestedByUid": { "type": "string" },
+        "providerType": { "type": "string", "enum": ["doctor", "clinic", "hospital", "diagnostic_lab"] },
+        "status": { "type": "string", "enum": ["UNVERIFIED", "VERIFICATION_PENDING", "VERIFIED", "VERIFICATION_REJECTED", "VERIFICATION_EXPIRED"] },
+        "credentialData": { "type": "object" },
+        "documentReferences": { "type": "array" },
+        "submittedAt": { "type": "string" },
+        "reviewedAt": { "type": "string" },
+        "reviewedBy": { "type": "string" },
+        "rejectionReason": { "type": "string" },
+        "reviewNotes": { "type": "string" },
+        "expiresAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "providerId", "requestedByUid", "status", "credentialData"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Administrative governance audit trail for verification and operational provider status changes.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "actorUid": { "type": "string" },
+        "actorName": { "type": "string" },
+        "actorRole": { "type": "string" },
+        "action": { "type": "string" },
+        "entityType": { "type": "string" },
+        "entityId": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "details": { "type": "string" }
+      },
+      "required": ["id", "actorUid", "action", "entityType", "entityId", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User account collection"
+    },
+    "/providers/{providerId}": {
+      "schema": { "$ref": "#/entities/Provider" },
+      "description": "Healthcare provider listings collection"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": { "$ref": "#/entities/Appointment" },
+      "description": "Patient appointment booking records collection"
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/Review" },
+      "description": "Patient reviews collection"
+    },
+    "/reviewReports/{reportId}": {
+      "schema": { "$ref": "#/entities/ReviewReport" },
+      "description": "Inappropriate review reports collection"
+    },
+    "/verifications/{verificationId}": {
+      "schema": { "$ref": "#/entities/ProviderVerification" },
+      "description": "Healthcare provider verifications collection"
+    },
+    "/auditLogs/{auditId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Administrative audit logs collection"
+    }
+  }
+}

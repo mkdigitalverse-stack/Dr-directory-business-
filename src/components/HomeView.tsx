@@ -673,35 +673,39 @@ export default function HomeView({
         </div>
       )}
 
-      {/* SECTION 4: HERO SECTION WITH UNIVERSAL SEARCH & SEPARATED LEFT/RIGHT PANELS */}
-      <section id="hero-section" className="relative bg-gradient-to-br from-[#0c2e27] via-[#061f1a] to-[#041512] text-white overflow-hidden py-16 px-4 sm:px-6 lg:px-8 border-b border-[#051f19]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.15),transparent_60%)]"></div>
-        <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-500/5 rounded-full blur-3xl"></div>
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
+      {/* SECTION 4: HERO SECTION WITH UNIVERSAL SEARCH & SEPARATED LEFT/RIGHT PANELS (40% Text / 60% Image Authority Layout) */}
+      <section id="hero-section" className="relative bg-gradient-to-br from-[#0c2e27] via-[#061f1a] to-[#041512] text-white overflow-hidden py-12 sm:py-16 px-4 sm:px-6 lg:px-8 border-b border-[#051f19]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(20,184,166,0.18),transparent_65%)] pointer-events-none"></div>
+        <div className="absolute top-12 right-12 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-10 left-10 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center relative z-10">
           
-          {/* Hero Left Side Panel */}
-          <div className="lg:col-span-7 space-y-6">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-400/20 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+          {/* Hero Left Side Panel (40% Width: lg:col-span-5) */}
+          <div className="lg:col-span-5 space-y-5 text-left">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-400/20 text-emerald-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider shadow-xs">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              Lucknow Healthcare Authority Registry Empanelled
-            </span>
-            <h1 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-5xl tracking-tight leading-tight">
-              Find Trusted Doctors, Clinics &amp; Hospitals Near You
+              <span>Lucknow Healthcare Registry</span>
+            </div>
+
+            <h1 className="font-display font-extrabold text-2xl sm:text-3xl lg:text-4xl text-white tracking-tight leading-tight">
+              Find Verified Doctors &amp; Top Clinics Near You
             </h1>
-            <p className="text-sm sm:text-base text-teal-200/90 leading-relaxed font-sans max-w-2xl">
-              Search verified healthcare providers, compare profiles, read patient reviews and book appointments with confidence. Start finding Lucknow's vetted medical chairs now.
+
+            <p className="text-xs sm:text-sm text-teal-100/90 leading-relaxed font-sans">
+              Official Lucknow healthcare directory with 100% audited NMC credentials, live OPD queues, and authentic patient feedback across all 48 local wards.
             </p>
 
-            {/* Universal Smart Search & Locality selectors */}
-            <div className="bg-white/95 backdrop-blur-md p-4 sm:p-6 rounded-3xl shadow-2xl text-slate-800 border border-slate-100/50 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            {/* Universal Smart Search & Locality selectors (Compact & Clean) */}
+            <div className="bg-white/95 backdrop-blur-md p-4 rounded-3xl shadow-2xl text-slate-800 border border-slate-100/50 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
                 {/* Country Dropdown */}
-                <div className="relative">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Country</label>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Country</label>
                   <select 
                     value={searchCountry} 
                     onChange={(e) => handleCountryChange(e.target.value)} 
-                    className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 text-xs font-semibold focus:ring-2 focus:ring-teal-500 focus:bg-white text-slate-700 outline-none transition-all cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-semibold focus:ring-2 focus:ring-teal-500 focus:bg-white text-slate-700 outline-none transition-all cursor-pointer"
                   >
                     {COUNTRIES_DATA.map((c) => (
                       <option key={c.id} value={c.id}>{c.flag} {c.name}</option>
@@ -709,12 +713,12 @@ export default function HomeView({
                   </select>
                 </div>
                 {/* State Dropdown */}
-                <div className="relative">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">State</label>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">State</label>
                   <select 
                     value={searchState} 
                     onChange={(e) => handleStateChange(e.target.value)}
-                    className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 text-xs font-semibold focus:ring-2 focus:ring-teal-500 focus:bg-white text-slate-700 outline-none transition-all cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-semibold focus:ring-2 focus:ring-teal-500 focus:bg-white text-slate-700 outline-none transition-all cursor-pointer"
                   >
                     {statesList.map((s) => (
                       <option key={s.id} value={s.id}>{s.name}</option>
@@ -722,12 +726,12 @@ export default function HomeView({
                   </select>
                 </div>
                 {/* City Dropdown */}
-                <div className="relative">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">City</label>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">City</label>
                   <select 
                     value={searchCity} 
                     onChange={(e) => handleCityChange(e.target.value)}
-                    className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 text-xs font-semibold focus:ring-2 focus:ring-teal-500 focus:bg-white text-slate-700 outline-none transition-all cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-semibold focus:ring-2 focus:ring-teal-500 focus:bg-white text-slate-700 outline-none transition-all cursor-pointer"
                   >
                     {citiesList.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
@@ -735,14 +739,14 @@ export default function HomeView({
                   </select>
                 </div>
                 {/* Area Dropdown */}
-                <div className="relative">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Area</label>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Lucknow Area</label>
                   <select
                     value={selectedLocality}
                     onChange={(e) => setSelectedLocality(e.target.value)}
-                    className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 text-xs font-semibold focus:ring-2 focus:ring-teal-500 focus:bg-white text-slate-700 outline-none transition-all cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-semibold focus:ring-2 focus:ring-teal-500 focus:bg-white text-slate-700 outline-none transition-all cursor-pointer"
                   >
-                    <option value="">All Areas</option>
+                    <option value="">All Areas (48)</option>
                     {localitiesList.map((area) => (
                       <option key={area} value={area.toLowerCase().replace(/\s+/g, "-")}>
                         {area}
@@ -753,57 +757,115 @@ export default function HomeView({
               </div>
 
               {/* Keyword Text Input */}
-              <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2.5 pt-1">
+              <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2 pt-1">
                 <div className="flex-1 relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
                   <input
                     type="text"
-                    placeholder="Search doctor specialty, treatment, disease, clinic or hospital name..."
+                    placeholder="Specialty, doctor, hospital or disease..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-slate-50/80 border border-slate-200/80 rounded-xl pl-10 pr-4 py-3.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 font-medium placeholder-slate-400"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800 font-medium placeholder-slate-400"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="bg-teal-600 hover:bg-teal-700 text-white font-sans text-xs font-bold py-3.5 px-7 rounded-xl transition-all shadow-lg shadow-teal-500/15 flex items-center justify-center gap-2 cursor-pointer hover:shadow-teal-500/25 active:scale-98"
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-sans text-xs font-bold py-2.5 px-5 rounded-xl transition-all shadow-md shadow-teal-600/20 flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                 >
-                  <span>Search Providers</span>
+                  <span>Search</span>
                 </button>
               </form>
             </div>
 
-            {/* Secondary CTA */}
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-xs text-teal-300">Are you a healthcare provider?</span>
+            {/* Provider CTA link */}
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <span className="text-[11px] text-teal-300">Are you a healthcare provider?</span>
               <button 
                 onClick={() => onNavigate("dashboard")}
-                className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-200 text-[11px] font-bold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-200 text-[10px] font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer shadow-xs"
               >
-                <span>🚀 List Your Practice Free</span>
+                <span>🚀 List Practice Free</span>
               </button>
             </div>
           </div>
 
-          {/* Hero Right Side Panel (Premium Image Asset with Overlays) */}
-          <div className="lg:col-span-5 relative">
-            <div className="relative rounded-3xl overflow-hidden border border-teal-500/20 shadow-2xl">
-              <img
-                src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=600&auto=format&fit=crop"
-                alt="LKOHEALTH Premium Healthcare Hub"
-                referrerPolicy="no-referrer"
-                className="w-full h-[360px] object-cover brightness-95"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
+          {/* Hero Right Side Panel (60% Width: lg:col-span-7) - Authority Visual Showcase */}
+          <div className="lg:col-span-7 relative">
+            <div className="relative rounded-3xl overflow-hidden border border-teal-500/20 shadow-2xl bg-slate-900/80 p-2.5 sm:p-3">
               
-              {/* Vetted Doctor floating badge representation */}
-              <div className="absolute bottom-5 left-5 right-5 bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-white/10 flex items-center gap-3 text-xs text-left shadow-2xl">
-                <span className="text-2xl">🛡️</span>
-                <div>
-                  <p className="font-display font-bold text-white text-sm tracking-tight">NMC-Vetted Database</p>
-                  <p className="text-slate-300 text-[10px] mt-0.5 leading-relaxed">100% credential audit before listing live.</p>
+              {/* Main Authority Showcase Header & Image Grid */}
+              <div className="relative h-[380px] sm:h-[440px] rounded-2xl overflow-hidden">
+                <img
+                  src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1000&auto=format&fit=crop"
+                  alt="LKOHEALTH Authority Medical Infrastructure & Verified Specialists"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover brightness-90 contrast-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/25 to-slate-950/10"></div>
+
+                {/* Floating Top Authority Badges */}
+                <div className="absolute top-4 left-4 right-4 flex flex-wrap justify-between items-center gap-2">
+                  <div className="bg-slate-900/90 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/15 flex items-center gap-2 shadow-xl">
+                    <span className="text-emerald-400 font-bold text-sm">🛡️</span>
+                    <div>
+                      <p className="font-sans font-extrabold text-white text-[11px] tracking-tight">NMC Audited Registry</p>
+                      <p className="text-[9px] text-emerald-300 font-mono">1,250+ Verified Medical Chairs</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/90 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/15 flex items-center gap-2 shadow-xl">
+                    <span className="text-amber-400 font-bold text-sm">⭐ 4.9/5</span>
+                    <div>
+                      <p className="font-sans font-extrabold text-white text-[11px] tracking-tight">Patient Verified</p>
+                      <p className="text-[9px] text-slate-300 font-mono">150,000+ Appointments</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Floating Bottom Doctor Feature Card Overlay */}
+                <div className="absolute bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-lg p-4 rounded-2xl border border-teal-500/30 text-xs shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-teal-800/80 border border-teal-400/30 flex items-center justify-center text-white text-xl font-bold shrink-0 shadow-md">
+                      🩺
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <p className="font-display font-extrabold text-white text-sm tracking-tight">Verified Doctor OPD Network</p>
+                        <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[9px] font-bold">
+                          Live Queues
+                        </span>
+                      </div>
+                      <p className="text-slate-300 text-[11px] mt-0.5">
+                        Cardiology, Gynecology, Orthopedics, Pediatrics &amp; 30+ Specialties across Gomti Nagar, Hazratganj, Indira Nagar &amp; 48 Wards.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => onNavigate("search")}
+                    className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs px-3.5 py-2 rounded-xl transition-all cursor-pointer shrink-0 shadow-md"
+                  >
+                    Explore Directory
+                  </button>
                 </div>
               </div>
+
+              {/* Bottom Authority Feature Highlights Grid */}
+              <div className="grid grid-cols-3 gap-2 mt-2 pt-1 text-center font-sans text-[10px] text-slate-300">
+                <div className="bg-slate-800/70 p-2 rounded-xl border border-slate-700/60">
+                  <span className="text-teal-400 font-bold block mb-0.5">🏥 Level-1 Emergency Wing</span>
+                  <span className="text-slate-400 text-[9px]">Trauma &amp; ICU Beds</span>
+                </div>
+                <div className="bg-slate-800/70 p-2 rounded-xl border border-slate-700/60">
+                  <span className="text-teal-400 font-bold block mb-0.5">🔬 NABL Pathology Labs</span>
+                  <span className="text-slate-400 text-[9px]">Home Sample Collection</span>
+                </div>
+                <div className="bg-slate-800/70 p-2 rounded-xl border border-slate-700/60">
+                  <span className="text-teal-400 font-bold block mb-0.5">💳 Zero Booking Markup</span>
+                  <span className="text-slate-400 text-[9px]">Direct Clinic Counter Fees</span>
+                </div>
+              </div>
+
             </div>
           </div>
 

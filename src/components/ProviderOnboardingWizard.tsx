@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { 
   Sparkles, CheckCircle2, ArrowRight, ArrowLeft, Building2, Stethoscope, Hospital as HospitalIcon, 
   FlaskConical, MapPin, Phone, Mail, Globe, Clock, ShieldCheck, Upload, FileText, Image, Film, 
-  Check, Save, HelpCircle, AlertCircle, ShieldAlert, X
+  Check, Save, HelpCircle, AlertCircle, ShieldAlert, X, AlertTriangle
 } from "lucide-react";
 import { UserRole, ProviderType } from "../types";
 import { LOCALITIES } from "../data";
@@ -10,6 +10,7 @@ import { LOCALITIES } from "../data";
 interface ProviderOnboardingWizardProps {
   currentUser: any;
   userRole: UserRole;
+  initialData?: any;
   onComplete: (onboardingData: any) => void;
   onSaveDraftAndExit?: (draftData: any) => void;
   onCancel?: () => void;
@@ -19,29 +20,45 @@ interface ProviderOnboardingWizardProps {
 export default function ProviderOnboardingWizard({
   currentUser,
   userRole,
+  initialData,
   onComplete,
   onSaveDraftAndExit,
-  onCancel
+  onCancel,
+  onClose
 }: ProviderOnboardingWizardProps) {
   // Show welcome screen initially
-  const [showWelcome, setShowWelcome] = useState(true);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [showWelcome, setShowWelcome] = useState(!initialData);
+  const [currentStep, setCurrentStep] = useState(initialData?.currentStep || 1);
 
   // Initial practice name from current user or role
   const defaultName = currentUser?.displayName?.split("|")[0] || "";
 
+  // Selected Provider Type (DOCTOR, CLINIC, HOSPITAL, DIAGNOSTIC_LAB)
+  const [selectedProviderType, setSelectedProviderType] = useState<ProviderType>(
+    initialData?.providerType || 
+    (userRole === "doctor" ? ProviderType.DOCTOR : 
+     userRole === "clinic" ? ProviderType.CLINIC : 
+     userRole === "hospital" ? ProviderType.HOSPITAL : ProviderType.LAB)
+  );
+
   // Form State
   // Step 1: Basic Practice Information
-  const [practiceName, setPracticeName] = useState(defaultName || (userRole === "doctor" ? "Dr. Anand Verma Clinic" : "Lucknow Care Facility"));
+  const [practiceName, setPracticeName] = useState(
+    initialData?.practiceName || defaultName || (userRole === "doctor" ? "Dr. Anand Verma Clinic" : "Lucknow Care Facility")
+  );
   const [practiceCategory, setPracticeCategory] = useState(
-    userRole === "doctor" ? "General Medicine & Cardiology" :
-    userRole === "clinic" ? "Multi-Specialty Clinic" :
-    userRole === "hospital" ? "Super Specialty Hospital" : "Diagnostic & Pathology Lab"
+    initialData?.practiceCategory || (
+      userRole === "doctor" ? "General Medicine & Cardiology" :
+      userRole === "clinic" ? "Multi-Specialty Clinic" :
+      userRole === "hospital" ? "Super Specialty Hospital" : "Diagnostic & Pathology Lab"
+    )
   );
   const [tagline, setTagline] = useState(
-    userRole === "doctor" ? "Compassionate & Advanced Patient Care in Lucknow" :
-    userRole === "clinic" ? "Modern OPD & Diagnostic Services Under One Roof" :
-    userRole === "hospital" ? "24/7 Emergency & Multi-Specialty Care Center" : "Accurate & Fast NABL Certified Diagnostic Tests"
+    initialData?.tagline || (
+      userRole === "doctor" ? "Compassionate & Advanced Patient Care in Lucknow" :
+      userRole === "clinic" ? "Modern OPD & Diagnostic Services Under One Roof" :
+      userRole === "hospital" ? "24/7 Emergency & Multi-Specialty Care Center" : "Accurate & Fast NABL Certified Diagnostic Tests"
+    )
   );
 
   // Step 2: Location
@@ -126,16 +143,22 @@ export default function ProviderOnboardingWizard({
 
   const handleFinalSubmit = () => {
     const onboardingData = {
+      type: selectedProviderType,
       practiceName,
       practiceCategory,
       tagline,
+      locality,
+      address,
+      pinCode,
       location: { country, state, city, locality, address, pinCode, mapPinSet },
       contact: { contactNumber, whatsappNumber, email: contactEmail, website },
       details: { aboutPractice, servicesOffered, specialties, consultationTimings, emergencyAvailability, insuranceAccepted },
       media: { logoUrl, coverImageUrl, galleryPhotos, introVideoUrl },
       verification: { registrationNo, uploadedDocs, acceptTerms, submittedAt: new Date().toISOString() },
-      status: "pending_verification",
-      completenessScore: 85
+      registrationNo,
+      status: "SUBMITTED",
+      verified: false,
+      rejectionReason: undefined
     };
     onComplete(onboardingData);
   };
@@ -143,14 +166,35 @@ export default function ProviderOnboardingWizard({
   const handleSaveDraft = () => {
     const draftData = {
       currentStep,
+      type: selectedProviderType,
       practiceName,
       practiceCategory,
+      tagline,
       locality,
+      address,
+      pinCode,
       contactNumber,
-      status: "draft",
+      contactEmail,
+      website,
+      aboutPractice,
+      specialties,
+      servicesOffered,
+      consultationTimings,
+      emergencyAvailability,
+      registrationNo,
+      logoUrl,
+      coverImageUrl,
+      status: "DRAFT",
       savedAt: new Date().toISOString()
     };
-    onSaveDraftAndExit(draftData);
+    if (onSaveDraftAndExit) {
+      onSaveDraftAndExit(draftData);
+    }
+    if (onClose) {
+      onClose();
+    } else if (onCancel) {
+      onCancel();
+    }
   };
 
   const handleAddService = (e: React.FormEvent) => {
@@ -220,9 +264,9 @@ export default function ProviderOnboardingWizard({
               <ArrowRight className="h-4 w-4" />
             </button>
 
-            {onCancel && (
+            {(onCancel || onClose) && (
               <button
-                onClick={onCancel}
+                onClick={() => onClose ? onClose() : (onCancel && onCancel())}
                 className="text-xs text-slate-500 hover:text-slate-700 font-semibold cursor-pointer block mx-auto pt-1"
               >
                 Skip for now & go to Dashboard
@@ -325,16 +369,51 @@ export default function ProviderOnboardingWizard({
               </div>
 
               <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 block">What would you like to list? *</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {[
+                      { type: ProviderType.DOCTOR, label: "Doctor", desc: "Practitioner / OPD", icon: Stethoscope },
+                      { type: ProviderType.CLINIC, label: "Clinic", desc: "Outpatient Facility", icon: Building2 },
+                      { type: ProviderType.HOSPITAL, label: "Hospital", desc: "24/7 Inpatient / ICU", icon: HospitalIcon },
+                      { type: ProviderType.LAB, label: "Diagnostic Lab", desc: "Pathology / Radiology", icon: FlaskConical }
+                    ].map((item) => {
+                      const Icon = item.icon;
+                      const isSel = selectedProviderType === item.type;
+                      return (
+                        <button
+                          key={item.type}
+                          type="button"
+                          onClick={() => setSelectedProviderType(item.type)}
+                          className={`p-3 rounded-2xl border text-left flex flex-col items-start gap-1.5 transition-all cursor-pointer ${
+                            isSel
+                              ? "bg-teal-50 border-teal-500 text-teal-900 shadow-2xs font-bold"
+                              : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          <div className={`p-1.5 rounded-xl ${isSel ? "bg-teal-600 text-white" : "bg-slate-200 text-slate-600"}`}>
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-extrabold">{item.label}</p>
+                            <p className="text-[10px] text-slate-500 font-normal leading-tight">{item.desc}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700 block">
-                    {userRole === "doctor" ? "Doctor / Clinic Practice Name *" : "Clinic / Hospital / Lab Name *"}
+                    {selectedProviderType === ProviderType.DOCTOR ? "Doctor / Clinic Practice Name *" : selectedProviderType === ProviderType.CLINIC ? "Clinic Name *" : selectedProviderType === ProviderType.HOSPITAL ? "Hospital Name *" : "Diagnostic Lab Name *"}
                   </label>
                   <input
                     type="text"
                     required
                     value={practiceName}
                     onChange={(e) => setPracticeName(e.target.value)}
-                    placeholder="e.g. Gomti Dental Care & Implant Center"
+                    placeholder={selectedProviderType === ProviderType.DOCTOR ? "e.g. Dr. Anand Verma Cardiology OPD" : "e.g. Gomti Dental & Diagnostic Center"}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3.5 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-teal-500 focus:bg-white transition-all"
                   />
                 </div>
@@ -732,79 +811,219 @@ export default function ProviderOnboardingWizard({
           )}
 
           {/* STEP 6: VERIFICATION & REVIEW */}
-          {currentStep === 6 && (
-            <div className="space-y-5 animate-in fade-in duration-150">
-              <div className="border-b border-slate-100 pb-3">
-                <h2 className="font-sans font-extrabold text-lg text-slate-900 flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-teal-600" />
-                  <span>Step 6 — Verification & Compliance Review</span>
-                </h2>
-                <p className="text-xs text-slate-500 mt-1">
-                  Upload your medical registration and licenses for administrator approval.
-                </p>
-              </div>
+          {currentStep === 6 && (() => {
+            const requiredChecklist = [
+              { label: "Practice / Doctor Name", ok: Boolean(practiceName.trim()) },
+              { label: "Provider Type Selected", ok: Boolean(selectedProviderType) },
+              { label: "Locality in Lucknow", ok: Boolean(locality.trim()) },
+              { label: "Full Physical Address", ok: Boolean(address.trim()) },
+              { label: "Contact Telephone", ok: Boolean(contactNumber.trim()) },
+              { label: "Medical Council / NMC Reg No.", ok: Boolean(registrationNo.trim()) }
+            ];
 
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Medical Council / NMC Registration Number *</label>
-                  <input
-                    type="text"
-                    required
-                    value={registrationNo}
-                    onChange={(e) => setRegistrationNo(e.target.value)}
-                    placeholder="e.g. UP-MCI-88912"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3.5 text-xs text-slate-800 focus:outline-none focus:border-teal-500 font-mono font-bold"
-                  />
-                </div>
+            const recommendedChecklist = [
+              { label: "About Practice Overview", ok: Boolean(aboutPractice.trim()) },
+              { label: "Specialties & Treatments", ok: specialties.length > 0 },
+              { label: "Services Offered", ok: servicesOffered.length > 0 },
+              { label: "Consultation Hours & Timings", ok: Boolean(consultationTimings.trim()) },
+              { label: "Profile / Clinic Photo", ok: Boolean(logoUrl.trim()) },
+              { label: "Compliance Document Attachment", ok: uploadedDocs.length > 0 }
+            ];
 
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-700 block">Attached Compliance Documents</label>
-                  <div className="space-y-1.5">
-                    {uploadedDocs.map((docName, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
-                        <div className="flex items-center gap-2 text-slate-800 font-medium">
-                          <FileText className="h-4 w-4 text-teal-600" />
-                          <span>{docName}</span>
-                        </div>
-                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">Uploaded</span>
-                      </div>
-                    ))}
-                  </div>
+            const requiredOk = requiredChecklist.every(i => i.ok);
+            const totalItems = requiredChecklist.length + recommendedChecklist.length;
+            const completedItems = requiredChecklist.filter(i => i.ok).length + recommendedChecklist.filter(i => i.ok).length;
+            const profileStrengthScore = Math.round((completedItems / totalItems) * 100);
 
-                  <button
-                    type="button"
-                    onClick={() => setUploadedDocs([...uploadedDocs, "GST_Clinical_Certificate.pdf"])}
-                    className="text-xs text-teal-700 font-bold hover:underline flex items-center gap-1 cursor-pointer pt-1"
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    <span>+ Upload Additional Document</span>
-                  </button>
-                </div>
-
-                <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 text-xs space-y-2 text-amber-900">
-                  <div className="flex items-center gap-2 font-bold">
-                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-                    <span>Verification Review Guidelines</span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-amber-800">
-                    Once submitted, your profile will be marked as <strong className="font-bold">Pending Verification</strong>. The Lucknow Health moderator team reviews credentials within 24 hours before issuing the green <strong className="font-bold">NMC Verified Badge</strong>.
+            return (
+              <div className="space-y-6 animate-in fade-in duration-150">
+                <div className="border-b border-slate-100 pb-3">
+                  <h2 className="font-sans font-extrabold text-lg text-slate-900 flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-teal-600" />
+                    <span>Step 6 — Verification, Profile Strength & Preview</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Review your completion score, compliance details, and profile preview prior to final administrator submission.
                   </p>
                 </div>
 
-                <label className="flex items-start gap-2.5 pt-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={acceptTerms}
-                    onChange={(e) => setAcceptTerms(e.target.checked)}
-                    className="mt-0.5 rounded text-teal-600 focus:ring-teal-500"
-                  />
-                  <span className="text-xs text-slate-600 leading-snug">
-                    I declare that all practice information, medical registration numbers, and operational details provided above are true, accurate, and compliant with medical guidelines in Uttar Pradesh.
-                  </span>
-                </label>
+                {/* PROFILE COMPLETION SCORE INDICATOR CARD */}
+                <div className="bg-slate-900 text-white rounded-3xl p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                    <div>
+                      <p className="text-xs text-slate-400 uppercase font-mono font-bold tracking-wider">Profile Completeness</p>
+                      <h3 className="text-xl font-extrabold text-white mt-0.5">Profile Strength Score</h3>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-3xl font-black text-teal-400 font-mono">{profileStrengthScore}%</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    {/* Required checklist */}
+                    <div className="space-y-2 bg-slate-800/60 p-3.5 rounded-2xl border border-white/10">
+                      <p className="font-extrabold text-teal-300 uppercase text-[11px] tracking-wide flex items-center justify-between">
+                        <span>Required Checklist</span>
+                        <span className={requiredOk ? "text-emerald-400" : "text-amber-400"}>
+                          {requiredChecklist.filter(i => i.ok).length}/{requiredChecklist.length} Complete
+                        </span>
+                      </p>
+                      <div className="space-y-1">
+                        {requiredChecklist.map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-[11px]">
+                            {item.ok ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                            ) : (
+                              <X className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                            )}
+                            <span className={item.ok ? "text-slate-200" : "text-rose-300 font-bold"}>
+                              {item.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Recommended checklist */}
+                    <div className="space-y-2 bg-slate-800/60 p-3.5 rounded-2xl border border-white/10">
+                      <p className="font-extrabold text-amber-300 uppercase text-[11px] tracking-wide flex items-center justify-between">
+                        <span>Recommended Items</span>
+                        <span className="text-slate-300">
+                          {recommendedChecklist.filter(i => i.ok).length}/{recommendedChecklist.length} Complete
+                        </span>
+                      </p>
+                      <div className="space-y-1">
+                        {recommendedChecklist.map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-[11px]">
+                            {item.ok ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-teal-400 shrink-0" />
+                            ) : (
+                              <AlertCircle className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            )}
+                            <span className={item.ok ? "text-slate-300" : "text-slate-400"}>
+                              {item.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PROFILE PREVIEW SECTION */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-teal-600" />
+                      <span>Live Public Profile Preview</span>
+                    </h3>
+                    <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold px-2.5 py-1 rounded-full animate-pulse">
+                      Preview — Your profile is not public yet.
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-3 text-xs">
+                    <div className="flex items-start gap-4">
+                      <img
+                        src={logoUrl || "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=200"}
+                        alt={practiceName}
+                        className="w-16 h-16 rounded-2xl object-cover border border-slate-200 shrink-0"
+                      />
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-black text-slate-900 text-sm">{practiceName || "Practice Name"}</h4>
+                          <span className="bg-teal-100 text-teal-800 text-[10px] font-bold px-2 py-0.5 rounded font-mono uppercase">
+                            {selectedProviderType}
+                          </span>
+                        </div>
+                        <p className="text-slate-600 text-xs font-medium">{tagline}</p>
+                        <p className="text-slate-500 text-[11px]">
+                          📍 {address}, {locality}, Lucknow, UP ({pinCode})
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] pt-2 border-t border-slate-200">
+                      <div>
+                        <span className="text-slate-400 block">Category:</span>
+                        <strong className="text-slate-800 font-semibold">{practiceCategory}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Registration No:</span>
+                        <strong className="text-slate-800 font-mono font-bold">{registrationNo || "Not provided"}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Contact Phone:</span>
+                        <strong className="text-slate-800 font-semibold">{contactNumber}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 block">Medical Council / NMC Registration Number *</label>
+                    <input
+                      type="text"
+                      required
+                      value={registrationNo}
+                      onChange={(e) => setRegistrationNo(e.target.value)}
+                      placeholder="e.g. UP-MCI-88912"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3.5 text-xs text-slate-800 focus:outline-none focus:border-teal-500 font-mono font-bold"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-700 block">Attached Compliance Documents</label>
+                    <div className="space-y-1.5">
+                      {uploadedDocs.map((docName, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                          <div className="flex items-center gap-2 text-slate-800 font-medium">
+                            <FileText className="h-4 w-4 text-teal-600" />
+                            <span>{docName}</span>
+                          </div>
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">Uploaded</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setUploadedDocs([...uploadedDocs, "GST_Clinical_Certificate.pdf"])}
+                      className="text-xs text-teal-700 font-bold hover:underline flex items-center gap-1 cursor-pointer pt-1"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      <span>+ Upload Additional Document</span>
+                    </button>
+                  </div>
+
+                  {!requiredOk && (
+                    <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 text-xs text-rose-900 space-y-1">
+                      <div className="font-extrabold flex items-center gap-2 text-rose-700">
+                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                        <span>Action Required Before Final Submission:</span>
+                      </div>
+                      <p className="text-[11px] text-rose-800">
+                        Please fill in all required fields highlighted in red above before submitting for administrator review.
+                      </p>
+                    </div>
+                  )}
+
+                  <label className="flex items-start gap-2.5 pt-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={acceptTerms}
+                      onChange={(e) => setAcceptTerms(e.target.checked)}
+                      className="mt-0.5 rounded text-teal-600 focus:ring-teal-500"
+                    />
+                    <span className="text-xs text-slate-600 leading-snug">
+                      I declare that all practice information, medical registration numbers, and operational details provided above are true, accurate, and compliant with medical guidelines in Uttar Pradesh.
+                    </span>
+                  </label>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* BOTTOM WIZARD NAVIGATION BAR */}
           <div className="flex items-center justify-between pt-4 border-t border-slate-150">

@@ -12,7 +12,8 @@ import {
   GoogleAuthProvider,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { setDoc, doc } from "firebase/firestore";
+import { auth, db, formatAuthError } from "../lib/firebase";
 import { UserRole, AccountStatus, UserProfile } from "../types";
 
 interface AuthModalProps {
@@ -102,6 +103,8 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
         localStorage.setItem(metaKey, JSON.stringify(userProfile));
       }
 
+      localStorage.setItem("lko_demo_session", JSON.stringify(result.user));
+
       setSuccessMsg("Google Sign-In successful! Accessing portal...");
       setTimeout(() => {
         onAuthSuccess(result.user, userProfile.role, userProfile);
@@ -109,17 +112,7 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
       }, 500);
     } catch (err: any) {
       console.error("Google Auth error:", err);
-      let msg = "Google authentication failed. Please try again.";
-      if (err.code === "auth/popup-closed-by-user") {
-        msg = "Google sign-in popup was closed before completing.";
-      } else if (err.code === "auth/popup-blocked") {
-        msg = "Sign-in popup was blocked by browser. Please allow popups.";
-      } else if (err.code === "auth/operation-not-allowed") {
-        msg = "Google Sign-In disabled in Firebase Console. Click Instant Access below.";
-      } else if (err.message) {
-        msg = err.message;
-      }
-      setErrorMsg(msg);
+      setErrorMsg(formatAuthError(err));
     } finally {
       setGoogleLoading(false);
     }
@@ -208,13 +201,7 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
       setSuccessMsg("Password reset email sent! Check your inbox for instructions.");
     } catch (err: any) {
       console.error("Password reset error:", err);
-      let msg = "Failed to send password reset email.";
-      if (err.code === "auth/user-not-found") {
-        msg = "No account registered with this email address.";
-      } else if (err.code === "auth/invalid-email") {
-        msg = "Please enter a valid email address.";
-      }
-      setErrorMsg(msg);
+      setErrorMsg(formatAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -306,8 +293,10 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
           displayName: `${pendingUserData.displayName}|${pendingUserData.role}`
         });
       } catch (authErr: any) {
-        // Fallback demo user if Firebase email auth disabled or offline
-        console.warn("Firebase User Creation warning, creating authenticated session:", authErr);
+        console.warn("Firebase User Creation warning:", authErr);
+        if (authErr.code) {
+          setErrorMsg(formatAuthError(authErr));
+        }
         firebaseUser = {
           uid,
           email: pendingUserData.email,
@@ -339,6 +328,8 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
 
       const userProfile: UserProfile = {
         uid,
+        firstName: pendingUserData.firstName,
+        lastName: pendingUserData.lastName,
         name: pendingUserData.displayName,
         email: pendingUserData.email,
         mobile: pendingUserData.mobile,
@@ -352,10 +343,30 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
         facilityName: pendingUserData.facilityName,
         address: pendingUserData.address,
         city: pendingUserData.city,
-        profileScore
+        profileScore,
+        providerIds: []
       };
 
+      try {
+        await setDoc(doc(db, "users", uid), {
+          uid,
+          firstName: pendingUserData.firstName || "",
+          lastName: pendingUserData.lastName || "",
+          name: pendingUserData.displayName,
+          email: pendingUserData.email,
+          mobile: pendingUserData.mobile || "",
+          role: pendingUserData.role,
+          status: status === "active" ? "active" : "pending_verification",
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString(),
+          providerIds: []
+        }, { merge: true });
+      } catch (fsErr) {
+        console.warn("Firestore user sync warning:", fsErr);
+      }
+
       localStorage.setItem(`lko_user_meta_${uid}`, JSON.stringify(userProfile));
+      localStorage.setItem("lko_demo_session", JSON.stringify(firebaseUser));
 
       setSuccessMsg(
         status === "active" 
@@ -416,24 +427,19 @@ export default function AuthModal({ onClose, onAuthSuccess, initialMode = "login
           status: "active",
           createdAt: new Date().toISOString().split("T")[0]
         };
+        localStorage.setItem(metaKey, JSON.stringify(userProfile));
       }
 
+      localStorage.setItem("lko_demo_session", JSON.stringify(userCredential.user));
       setSuccessMsg("Signed in successfully! Accessing portal...");
       setTimeout(() => {
         onAuthSuccess(userCredential.user, userProfile.role, userProfile);
         onClose();
       }, 500);
     } catch (err: any) {
-      console.error("Login error:", err);
-      let msg = err.message || "An error occurred during authentication.";
-      if (err.code === "auth/user-not-found") {
-        msg = "No account found with this email. Switch to Register or Instant Access below.";
-      } else if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
-        msg = "Invalid email or password combination.";
-      } else if (err.code === "auth/operation-not-allowed") {
-        msg = "Email login disabled in Firebase Console. Click Instant Access below.";
-      }
-      setErrorMsg(msg);
+      console.warn("Firebase Auth sign-in notice:", err);
+      const formattedError = formatAuthError(err);
+      setErrorMsg(formattedError);
     } finally {
       setLoading(false);
     }

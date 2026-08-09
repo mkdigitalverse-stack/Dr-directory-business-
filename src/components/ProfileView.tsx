@@ -2,20 +2,23 @@ import React, { useState, useMemo } from "react";
 import { 
   CheckCircle, MapPin, Star, Clock, Heart, Share2, AlertTriangle, Phone, Mail, 
   Map, Award, BookOpen, ShieldCheck, HelpCircle, ChevronRight, ThumbsUp, Calendar, 
-  ChevronDown, Video, Image as ImageIcon, Sparkles, Building2, UserCheck, ShieldAlert, GraduationCap
+  ChevronDown, Video, Image as ImageIcon, Sparkles, Building2, UserCheck, ShieldAlert, GraduationCap, MessageSquarePlus, X, MessageSquare
 } from "lucide-react";
-import { Provider, ProviderType, Review, ViewState, Article } from "../types";
+import { Provider, ProviderType, Review, ViewState, Article, FAQItem, ReportReason } from "../types";
 import MedicalAvatar from "./MedicalAvatar";
+import ProviderFAQSection from "./ProviderFAQSection";
 
 interface ProfileViewProps {
   provider: Provider;
   allProviders: Provider[];
   allReviews: Review[];
   articles: Article[];
+  currentUser?: any;
   onNavigate: (view: ViewState) => void;
   onSelectProvider: (id: string) => void;
   onBookAppointment: (provider: Provider) => void;
   onOpenAddReview: () => void;
+  onUpdateProvider?: (updatedProv: Provider) => void;
 }
 
 export default function ProfileView({ 
@@ -23,10 +26,12 @@ export default function ProfileView({
   allProviders, 
   allReviews, 
   articles, 
+  currentUser,
   onNavigate, 
   onSelectProvider, 
   onBookAppointment,
-  onOpenAddReview
+  onOpenAddReview,
+  onUpdateProvider
 }: ProfileViewProps) {
   
   const [activeTab, setActiveTab] = useState<"overview" | "credentials" | "reviews" | "faq">("overview");
@@ -35,15 +40,24 @@ export default function ProfileView({
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
-  // Dynamic reviews filter for this specific provider
+  // Dynamic reviews filter for this specific provider (PUBLISHED reviews only)
   const reviews = useMemo(() => {
-    return allReviews.filter(r => r.providerId === provider.id);
+    return allReviews.filter(r => 
+      r.providerId === provider.id && 
+      (r.status === "PUBLISHED" || r.status === "published" || !r.status)
+    );
   }, [allReviews, provider.id]);
 
-  // Dynamic related/nearby providers list
+  // Review Report State
+  const [reportingReviewId, setReportingReviewId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState<ReportReason>("Spam");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportSuccess, setReportSuccess] = useState(false);
+
+  // Related providers (approved only)
   const relatedProviders = useMemo(() => {
     return allProviders
-      .filter(p => p.id !== provider.id && (p.localityId === provider.localityId || p.specialties.some(s => provider.specialties.includes(s))))
+      .filter(p => p.id !== provider.id && (p.status === "APPROVED" || !p.status) && (p.localityId === provider.localityId || p.specialties.some(s => provider.specialties.includes(s))))
       .slice(0, 3);
   }, [allProviders, provider]);
 
@@ -55,13 +69,18 @@ export default function ProfileView({
   // Handle share action
   const handleShare = () => {
     const url = `https://lucknow.healthcare.directory/provider/${provider.id}`;
-    navigator.clipboard.writeText(url).then(() => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    } else {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {
-      // fallback
-      alert(`Profile link: ${url}`);
-    });
+    }
   };
 
   // Handle report action
@@ -87,12 +106,12 @@ export default function ProfileView({
       };
     }
     const sums = reviews.reduce((acc, r) => ({
-      doctorBehavior: acc.doctorBehavior + r.metrics.doctorBehavior,
-      waitingTime: acc.waitingTime + r.metrics.waitingTime,
-      cleanliness: acc.cleanliness + r.metrics.cleanliness,
-      staffBehavior: acc.staffBehavior + r.metrics.staffBehavior,
-      communication: acc.communication + r.metrics.communication,
-      treatmentSatisfaction: acc.treatmentSatisfaction + r.metrics.treatmentSatisfaction
+      doctorBehavior: acc.doctorBehavior + (r.metrics?.doctorBehavior || r.doctorBehaviour || 5),
+      waitingTime: acc.waitingTime + (r.metrics?.waitingTime || r.waitingTime || 5),
+      cleanliness: acc.cleanliness + (r.metrics?.cleanliness || r.cleanliness || 5),
+      staffBehavior: acc.staffBehavior + (r.metrics?.staffBehavior || r.staffBehaviour || 5),
+      communication: acc.communication + (r.metrics?.communication || r.communication || 5),
+      treatmentSatisfaction: acc.treatmentSatisfaction + (r.metrics?.treatmentSatisfaction || r.treatmentSatisfaction || 5)
     }), {
       doctorBehavior: 0, waitingTime: 0, cleanliness: 0, staffBehavior: 0, communication: 0, treatmentSatisfaction: 0
     });
@@ -109,10 +128,52 @@ export default function ProfileView({
 
   const typeLabel = provider.type === ProviderType.DOCTOR ? `Dr. ${provider.name}` : provider.name;
 
+  const isOwner = currentUser?.uid === provider.ownerUid;
+  const isAdmin = currentUser?.role === "admin";
+  const isApproved = !provider.status || provider.status === "APPROVED";
+
+  // Enforce Requirement 5: Non-approved providers are blocked for public users
+  if (!isApproved && !isOwner && !isAdmin) {
+    return (
+      <div className="bg-slate-50 min-h-screen py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+        <div className="bg-white rounded-3xl border border-slate-200 p-8 max-w-md w-full shadow-lg text-center space-y-4">
+          <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto border border-amber-200">
+            <ShieldAlert className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
+            Listing Not Publicly Accessible
+          </h2>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            This provider profile is currently undergoing administrative review ({provider.status || "UNAPPROVED"}) and is not accessible to the public.
+          </p>
+          <button
+            onClick={() => onNavigate("search")}
+            className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs py-3 rounded-xl transition-all cursor-pointer shadow-md"
+          >
+            Return to Lucknow Health Search
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div id="profile-view" className="bg-slate-50 min-h-screen py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         
+        {/* Unapproved Notice Banner for Owner / Admin */}
+        {!isApproved && (
+          <div className="mb-4 bg-amber-50 border-2 border-amber-300 p-4 rounded-2xl flex items-center justify-between text-xs text-amber-950 font-sans">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0" />
+              <div>
+                <strong className="font-bold block text-sm">Listing Status: {provider.status}</strong>
+                <span>This profile is in review/unapproved state and is currently hidden from public directory search. Visible only to profile owner and governance moderators.</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Breadcrumbs */}
         <div className="mb-6 text-xs sm:text-sm text-slate-500 font-sans flex items-center gap-1.5 flex-wrap">
           <span className="hover:text-teal-600 cursor-pointer" onClick={() => onNavigate("home")}>Home</span>
@@ -161,6 +222,17 @@ export default function ProfileView({
                 <span className="bg-teal-50 text-teal-700 text-xs font-bold px-2.5 py-0.5 rounded-md uppercase">
                   {provider.type.replace("_", " ")}
                 </span>
+                {provider.verified ? (
+                  <span className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-md flex items-center gap-1" title="Medical council license verified">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-100" />
+                    Verified Provider
+                  </span>
+                ) : (
+                  <span className="bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold px-2.5 py-0.5 rounded-md flex items-center gap-1" title="Directory listing approved, document verification in progress">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    Profile Approved for Listing • Verification Pending
+                  </span>
+                )}
                 {provider.medicalRegistrationNumber && (
                   <span className="bg-slate-50 border border-slate-150 text-slate-500 text-xs font-mono font-semibold px-2 py-0.5 rounded-md">
                     Registration No: {provider.medicalRegistrationNumber}
@@ -411,6 +483,48 @@ export default function ProfileView({
                   </div>
                 </div>
 
+                {/* Patient FAQ Teaser Block on Overview Tab */}
+                <div className="bg-gradient-to-br from-teal-900 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-sm text-left relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest bg-teal-500/20 text-teal-300 border border-teal-500/30 px-3 py-1 rounded-full">
+                        Patient OPD Help Desk
+                      </span>
+                      <h4 className="font-sans font-extrabold text-white text-base sm:text-lg mt-2">
+                        Have Questions Before Booking Your Visit?
+                      </h4>
+                      <p className="text-xs text-slate-300 mt-1 max-w-xl">
+                        Find verified answers to common questions about OPD consultation fees (₹{provider.consultationFee}), report turnaround times, insurance policies, and facility navigation.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => setActiveTab("faq")}
+                      className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer shadow-md"
+                    >
+                      <span>Explore Patient FAQs</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-slate-800 text-xs">
+                    <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+                      <p className="text-teal-400 font-bold mb-1">💳 Consultation Fee</p>
+                      <p className="text-slate-300 text-[11px]">₹{provider.consultationFee} payable via Cash, UPI, or Cards at clinic counter.</p>
+                    </div>
+                    <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+                      <p className="text-teal-400 font-bold mb-1">⏰ OPD Timings</p>
+                      <p className="text-slate-300 text-[11px]">Arrive 10-15 mins early for check-in and vitals recording.</p>
+                    </div>
+                    <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+                      <p className="text-teal-400 font-bold mb-1">📄 Reports &amp; Claims</p>
+                      <p className="text-slate-300 text-[11px]">Digital reports via SMS/WhatsApp &amp; desk cashless support.</p>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             )}
 
@@ -513,7 +627,7 @@ export default function ProfileView({
                 <div className="space-y-4">
                   {reviews.length === 0 ? (
                     <div className="bg-white p-8 rounded-2xl border border-slate-100 text-center text-slate-400 text-xs sm:text-sm font-sans">
-                      No customer reviews submitted yet. Be the first to share your consultation experience!
+                      No published patient reviews yet for this provider. Completed appointment reviews will appear here.
                     </div>
                   ) : (
                     reviews.map((rev) => (
@@ -521,77 +635,181 @@ export default function ProfileView({
                         <div className="flex justify-between items-start">
                           <div>
                             <h4 className="font-sans font-extrabold text-slate-800 text-sm">
-                              {rev.patientName}
+                              {rev.patientName || "Verified Patient"}
                             </h4>
-                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{rev.date}</p>
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{rev.date || rev.createdAt?.split("T")[0]}</p>
                           </div>
 
                           <div className="flex items-center gap-1.5">
-                            <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-emerald-100 flex items-center gap-1">
-                              <UserCheck className="h-3 w-3" />
-                              VERIFIED PATIENT
-                            </span>
-                            <div className="flex items-center text-xs text-amber-500 font-bold bg-amber-50 px-2 py-0.5 rounded">
+                            {(rev.isVerified || rev.verified) && (
+                              <span className="bg-emerald-50 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                                <UserCheck className="h-3 w-3 text-emerald-600" />
+                                Verified Review
+                              </span>
+                            )}
+                            <div className="flex items-center text-xs text-amber-500 font-bold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-100">
                               <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                              <span className="ml-0.5">{rev.rating}</span>
+                              <span className="ml-1">{rev.rating}</span>
                             </div>
                           </div>
                         </div>
 
-                        <p className="text-xs sm:text-sm text-slate-500 leading-relaxed font-sans">
-                          {rev.comment}
+                        <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans">
+                          {rev.reviewText || rev.comment}
                         </p>
+
+                        {/* PROVIDER RESPONSE DISPLAY */}
+                        {rev.providerResponse && (
+                          <div className="mt-3 p-3.5 bg-slate-50 border-l-4 border-teal-500 rounded-r-2xl space-y-1 text-xs text-left font-sans">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-teal-900 text-[11px] uppercase tracking-wider flex items-center gap-1">
+                                <Building2 className="h-3.5 w-3.5 text-teal-600" />
+                                Response from Provider
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono">{rev.providerResponse.createdAt}</span>
+                            </div>
+                            <p className="text-slate-700 text-xs italic">
+                              "{rev.providerResponse.responseText}"
+                            </p>
+                          </div>
+                        )}
+
+                        {/* REPORT REVIEW LINK */}
+                        <div className="pt-2 border-t border-slate-100 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReportingReviewId(rev.id);
+                              setReportSuccess(false);
+                            }}
+                            className="text-[11px] text-slate-400 hover:text-rose-600 font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            <span>Report Review</span>
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}
                 </div>
+
+                {/* REPORT REVIEW MODAL */}
+                {reportingReviewId && (
+                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl p-6 max-w-md w-full text-left space-y-4 shadow-2xl relative border border-slate-100">
+                      <button 
+                        onClick={() => setReportingReviewId(null)}
+                        className="absolute top-4 right-4 text-slate-400 hover:text-slate-800 p-1 rounded-full cursor-pointer"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+
+                      <div className="space-y-1">
+                        <span className="font-mono text-[10px] text-rose-800 font-extrabold uppercase tracking-widest bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-md">
+                          MODERATION REPORT
+                        </span>
+                        <h3 className="font-sans font-extrabold text-slate-900 text-lg">Report Inappropriate Review</h3>
+                        <p className="text-xs text-slate-500">
+                          Submit a report to Lucknow Healthcare Directory admin moderation team.
+                        </p>
+                      </div>
+
+                      {reportSuccess ? (
+                        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl text-xs font-bold text-center space-y-2">
+                          <p>Report Submitted Successfully.</p>
+                          <p className="text-[11px] text-slate-500 font-normal">Our moderation team will review this report against system community guidelines.</p>
+                          <button
+                            onClick={() => setReportingReviewId(null)}
+                            className="w-full bg-slate-900 text-white font-bold py-2 rounded-xl text-xs mt-2"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      ) : (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            // Dispatch report
+                            try {
+                              const reportData = {
+                                id: `rep-${Date.now()}`,
+                                reviewId: reportingReviewId,
+                                providerId: provider.id,
+                                reportedByUid: currentUser?.uid || "anonymous_reporter",
+                                reporterName: currentUser?.displayName || "Directory User",
+                                reason: reportReason,
+                                details: reportDetails.trim(),
+                                status: "OPEN" as const,
+                                createdAt: new Date().toISOString().split("T")[0]
+                              };
+                              const existingReports = JSON.parse(localStorage.getItem("lko_review_reports") || "[]");
+                              existingReports.push(reportData);
+                              localStorage.setItem("lko_review_reports", JSON.stringify(existingReports));
+                              setReportSuccess(true);
+                            } catch (err) {
+                              console.warn("Report storage failed:", err);
+                              setReportSuccess(true);
+                            }
+                          }}
+                          className="space-y-3 text-xs"
+                        >
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Reason for Report *</label>
+                            <select
+                              value={reportReason}
+                              onChange={(e) => setReportReason(e.target.value as ReportReason)}
+                              className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs text-slate-800 font-medium"
+                            >
+                              <option value="Spam">Spam or Irrelevant</option>
+                              <option value="Fake / fraudulent">Fake / Fraudulent Review</option>
+                              <option value="Offensive language">Offensive Language / Abuse</option>
+                              <option value="Personal information">Contains Personal Contact Info</option>
+                              <option value="Harassment">Harassment or Defamation</option>
+                              <option value="Misleading information">Misleading Information</option>
+                              <option value="Other">Other Reason</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Additional Details (Optional)</label>
+                            <textarea
+                              rows={2}
+                              placeholder="Describe why this review violates community standards..."
+                              value={reportDetails}
+                              onChange={(e) => setReportDetails(e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs text-slate-800 resize-none"
+                            />
+                          </div>
+
+                          <button
+                            type="submit"
+                            className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl shadow cursor-pointer text-xs"
+                          >
+                            Submit Moderation Report
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* TAB CONTENT: FAQ */}
             {activeTab === "faq" && (
-              <div id="faq-tab-content" className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-100 shadow-xs text-left animate-in fade-in duration-200">
-                <h3 className="font-sans font-extrabold text-slate-800 text-base mb-6 flex items-center gap-2">
-                  <HelpCircle className="h-5 w-5 text-teal-600" />
-                  Frequently Asked Questions (FAQs)
-                </h3>
-
-                <div className="space-y-4">
-                  {[
-                    {
-                      q: `What is the consultation fee for ${typeLabel}?`,
-                      a: `The standard clinical consultation fee is ₹${provider.consultationFee}. This payment can be processed in-person at the clinic counter via UPI, Cash, or Credit/Debit Cards.`
-                    },
-                    {
-                      q: "How early should I arrive for my appointment?",
-                      a: "To ensure proper record creation and complete temperature checks, please arrive 10-15 minutes prior to your scheduled consultation slot."
-                    },
-                    {
-                      q: "Which insurance providers are accepted here?",
-                      a: provider.insuranceAccepted 
-                        ? `The accepted insurance options include: ${provider.insuranceAccepted.join(", ")}.`
-                        : "For major cashless approvals, please connect directly with the clinic billing desk before your OPD session."
+              <div id="faq-tab-content" className="animate-in fade-in duration-200">
+                <ProviderFAQSection
+                  provider={provider}
+                  currentUser={currentUser}
+                  onUpdateFaqs={(updatedFaqs) => {
+                    if (onUpdateProvider) {
+                      onUpdateProvider({
+                        ...provider,
+                        faqs: updatedFaqs
+                      });
                     }
-                  ].map((item, idx) => {
-                    const isOpen = openFaqIndex === idx;
-                    return (
-                      <div key={idx} className="border border-slate-100 rounded-xl overflow-hidden">
-                        <button
-                          onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
-                          className="w-full text-left bg-slate-50 hover:bg-slate-100/70 px-4 py-3 flex justify-between items-center transition-colors focus:outline-none cursor-pointer"
-                        >
-                          <span className="font-sans font-bold text-xs sm:text-sm text-slate-800">{item.q}</span>
-                          <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                        </button>
-                        {isOpen && (
-                          <div className="p-4 bg-white border-t border-slate-100 text-xs text-slate-500 leading-relaxed">
-                            {item.a}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                  }}
+                />
               </div>
             )}
 
@@ -634,34 +852,71 @@ export default function ProfileView({
                 </div>
               </div>
 
-              <button
-                onClick={() => onBookAppointment(provider)}
-                className="w-full bg-teal-600 hover:bg-teal-700 text-white font-sans text-sm font-bold py-3.5 rounded-xl transition-all shadow-md shadow-teal-100/50 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Calendar className="h-4 w-4 shrink-0" />
-                <span>Confirm Appointment</span>
-              </button>
+              {provider.status === "SUSPENDED" || provider.status === "REJECTED" ? (
+                <button
+                  disabled
+                  className="w-full bg-slate-100 text-slate-400 font-sans text-xs font-bold py-3.5 rounded-xl text-center cursor-not-allowed"
+                >
+                  Booking Unavailable
+                </button>
+              ) : provider.bookingSettings?.onlineBookingEnabled === false ? (
+                <a
+                  href={`tel:${provider.phone || "+915224581290"}`}
+                  className="w-full bg-sky-600 hover:bg-sky-700 text-white font-sans text-sm font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Phone className="h-4 w-4 shrink-0" />
+                  <span>Contact Provider Desk</span>
+                </a>
+              ) : (
+                <button
+                  onClick={() => onBookAppointment(provider)}
+                  className="w-full bg-teal-600 hover:bg-teal-700 text-white font-sans text-sm font-bold py-3.5 rounded-xl transition-all shadow-md shadow-teal-100/50 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Calendar className="h-4 w-4 shrink-0" />
+                  <span>Book Appointment</span>
+                </button>
+              )}
               <p className="text-[10px] text-slate-400 text-center leading-normal">
                 No advanced pre-payment required. Pay directly at clinical desk.
               </p>
             </div>
 
-            {/* Quick Contact Box */}
+            {/* Quick Contact & Action Buttons Box */}
             <div className="bg-slate-900 text-white p-6 rounded-3xl space-y-4 text-left">
-              <h3 className="font-sans font-bold text-xs uppercase tracking-widest text-teal-400">Contact Information</h3>
+              <h3 className="font-sans font-bold text-xs uppercase tracking-widest text-teal-400">Direct Contact & Directions</h3>
               <div className="space-y-3 text-xs font-sans">
                 <div className="flex gap-2.5">
                   <Phone className="h-4 w-4 text-teal-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold">OPD Clinic Desk</p>
-                    <p className="text-slate-300 mt-0.5">+91-522-4581290</p>
+                    <a href={`tel:${provider.phone || "+915224581290"}`} className="text-slate-300 hover:text-teal-300 mt-0.5 block">
+                      {provider.phone || "+91-522-4581290"}
+                    </a>
                   </div>
                 </div>
+
+                {(provider.directContact?.whatsApp || provider.locations?.[0]?.whatsApp || provider.phone) && (
+                  <div className="flex gap-2.5 border-t border-slate-800 pt-3">
+                    <MessageSquare className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">WhatsApp Direct</p>
+                      <a 
+                        href={`https://wa.me/${(provider.directContact?.whatsApp || provider.locations?.[0]?.whatsApp || provider.phone || "").replace(/[^0-9]/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-400 hover:underline mt-0.5 block font-bold"
+                      >
+                        Message on WhatsApp
+                      </a>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-2.5 border-t border-slate-800 pt-3">
                   <Mail className="h-4 w-4 text-teal-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold">Helpline Email</p>
-                    <p className="text-slate-300 mt-0.5">desk@medlucknow.directory</p>
+                    <p className="text-slate-300 mt-0.5">{provider.email || "desk@medlucknow.directory"}</p>
                   </div>
                 </div>
               </div>

@@ -24,6 +24,50 @@ function getGenAIClient(): GoogleGenAI | null {
   });
 }
 
+// API routes go here FIRST
+app.get("/robots.txt", (_req, res) => {
+  res.type("text/plain");
+  res.send(`User-agent: *
+Allow: /
+Allow: /search
+Allow: /provider/
+Allow: /about
+Allow: /policy/
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://lucknow.healthcare.directory/sitemap.xml
+`);
+});
+
+app.get("/sitemap.xml", (_req, res) => {
+  res.type("application/xml");
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://lucknow.healthcare.directory/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://lucknow.healthcare.directory/search</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://lucknow.healthcare.directory/about</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://lucknow.healthcare.directory/contact</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+</urlset>`);
+});
+
 // Fallback seasonal health tips for Lucknow when API key is unconfigured or rate limited
 const FALLBACK_LUCKNOW_HEALTH_TIPS = [
   {

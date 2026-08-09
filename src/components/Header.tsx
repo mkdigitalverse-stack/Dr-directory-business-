@@ -3,7 +3,7 @@ import {
   Activity, Menu, X, User, Heart, ShieldAlert, ChevronDown, CheckCircle,
   Phone, Mail, Bell, Globe
 } from "lucide-react";
-import { ViewState, ProviderType } from "../types";
+import { ViewState, ProviderType, UserRole } from "../types";
 
 interface HeaderProps {
   activeView: ViewState;
@@ -11,7 +11,7 @@ interface HeaderProps {
   onSelectCategory: (type: ProviderType | "all") => void;
   onSearchSpecialty: (spec: string) => void;
   currentUser: any;
-  onOpenAuth: (mode: "login" | "signup") => void;
+  onOpenAuth: (mode: "login" | "signup", role?: UserRole) => void;
   onLogout: () => void;
   onOpenAddListing?: () => void;
 }
@@ -291,27 +291,51 @@ export default function Header({
           </nav>
 
           {/* Action Buttons */}
-          <div className="hidden lg:flex items-center gap-4">
-            <button
-              onClick={() => currentUser ? handleNav("dashboard") : onOpenAuth("login")}
-              className={`font-sans text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer ${
-                activeView === "dashboard" ? "text-teal-600" : "text-slate-600 hover:text-teal-600"
-              }`}
-            >
-              <User className="h-3.5 w-3.5" />
-              Provider Portal
-            </button>
+          <div className="hidden lg:flex items-center gap-3">
+            {currentUser ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleNav("dashboard")}
+                  className={`font-sans text-xs font-bold px-3 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer border ${
+                    activeView === "dashboard" 
+                      ? "bg-teal-50 border-teal-200 text-teal-800" 
+                      : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-teal-50 hover:text-teal-800"
+                  }`}
+                >
+                  <User className="h-4 w-4 text-teal-600" />
+                  <span>{currentUser.displayName?.split("|")[0] || "User Portal"}</span>
+                </button>
+
+                <button
+                  onClick={onLogout}
+                  className="text-xs text-slate-500 hover:text-rose-600 font-bold px-2 py-1 cursor-pointer transition-colors"
+                  title="Sign Out"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => onOpenAuth("login")}
+                className={`font-sans text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 ${
+                  activeView === "dashboard" ? "text-teal-600" : "text-slate-700 hover:text-teal-600"
+                }`}
+              >
+                <User className="h-3.5 w-3.5 text-teal-600" />
+                Sign In
+              </button>
+            )}
 
             <button
               onClick={() => {
                 if (onOpenAddListing) onOpenAddListing();
                 else if (currentUser) handleNav("dashboard");
-                else onOpenAuth("signup");
+                else onOpenAuth("signup", "doctor");
               }}
-              className="bg-teal-600 hover:bg-teal-700 text-white font-sans text-xs font-bold px-4 py-2 rounded-lg transition-all hover:shadow-md hover:shadow-teal-100/50 flex items-center gap-1.5 cursor-pointer"
+              className="bg-teal-600 hover:bg-teal-700 text-white font-sans text-xs font-bold px-4 py-2 rounded-xl transition-all hover:shadow-md hover:shadow-teal-100/50 flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
               <CheckCircle className="h-3.5 w-3.5 stroke-[2.5]" />
-              List Your Practice
+              <span>List Your Practice</span>
             </button>
           </div>
 

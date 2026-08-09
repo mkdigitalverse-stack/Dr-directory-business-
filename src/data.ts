@@ -1,4 +1,4 @@
-import { State, City, Locality, Provider, ProviderType, HealthPackage, Article, Review } from "./types";
+import { State, City, Locality, Provider, ProviderType, HealthPackage, Article, Review, ProviderVerification, AuditLog } from "./types";
 
 // Lucknow Localities
 export const LOCALITIES: Locality[] = [
@@ -98,6 +98,8 @@ export const INITIAL_PROVIDERS: Provider[] = [
     name: "Anand Verma",
     title: "Dr.",
     type: ProviderType.DOCTOR,
+    status: "APPROVED",
+    verificationStatus: "VERIFIED",
     image: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=400&auto=format&fit=crop",
     verified: true,
     medicalRegistrationNumber: "MCI-45892",
@@ -357,8 +359,10 @@ export const INITIAL_PROVIDERS: Provider[] = [
     id: "gomti-nagar-multispecialty-clinic",
     name: "Gomti Nagar Multispecialty Clinic",
     type: ProviderType.CLINIC,
+    status: "APPROVED",
+    verificationStatus: "VERIFICATION_PENDING",
     image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=400&auto=format&fit=crop",
-    verified: true,
+    verified: false,
     medicalRegistrationNumber: "REG-CLN-88219",
     experienceYears: 15,
     specialties: ["Cardiology", "Dentistry", "Gynecology", "General Medicine"],
@@ -831,6 +835,7 @@ export const MOCK_REVIEWS: Review[] = [
     comment: "Dr. Verma explained my coronary treatment so clearly and answered all my queries. The staff was incredibly warm and the clinic was clean. Highly recommended!",
     date: "2026-06-25",
     verified: true,
+    status: "PUBLISHED",
     metrics: {
       doctorBehavior: 5,
       waitingTime: 4,
@@ -848,6 +853,7 @@ export const MOCK_REVIEWS: Review[] = [
     comment: "Excellent experience. The waiting time was about 15 minutes which is great for such a senior doctor. He changed my heart medicine and my BP is now perfectly stable.",
     date: "2026-06-28",
     verified: true,
+    status: "PUBLISHED",
     metrics: {
       doctorBehavior: 5,
       waitingTime: 3.5,
@@ -865,6 +871,7 @@ export const MOCK_REVIEWS: Review[] = [
     comment: "Dr. Shambhavi is an absolute lifesaver. After 3 failed attempts elsewhere, her customized IVF treatment successfully worked for us. We are blessed with a healthy baby girl. I can never thank her enough.",
     date: "2026-07-01",
     verified: true,
+    status: "PUBLISHED",
     metrics: {
       doctorBehavior: 5,
       waitingTime: 4,
@@ -882,6 +889,7 @@ export const MOCK_REVIEWS: Review[] = [
     comment: "My mother underwent knee replacement surgery under Dr. Tandon. She is now walking comfortably after just 4 weeks. Highly professional care.",
     date: "2026-07-03",
     verified: true,
+    status: "PUBLISHED",
     metrics: {
       doctorBehavior: 5,
       waitingTime: 4,
@@ -1051,5 +1059,139 @@ export const TESTIMONIALS = [
     author: "Dr. Shambhavi Mishra",
     role: "Consultant Gynecologist",
     location: "Hazratganj, Lucknow"
+  }
+];
+
+export const INITIAL_VERIFICATIONS: ProviderVerification[] = [
+  {
+    id: "verif-anand-verma",
+    providerId: "dr-anand-verma",
+    providerName: "Dr. Anand Verma",
+    requestedByUid: "doc-owner-anand",
+    providerType: ProviderType.DOCTOR,
+    status: "VERIFIED",
+    credentialData: {
+      fullName: "Anand Verma",
+      medicalRegistrationNumber: "MCI-45892",
+      registrationAuthority: "Medical Council of India / UP Medical Council",
+      registrationYear: "2008",
+      qualification: "MD, DM (Cardiology), FACC",
+      specialization: "Cardiology"
+    },
+    documentReferences: [
+      {
+        id: "doc-1",
+        documentType: "Medical Registration Certificate",
+        documentNumber: "MCI-45892",
+        fileName: "Medical_Registration_Certificate_Anand_Verma.pdf",
+        uploadedAt: "2026-06-01"
+      },
+      {
+        id: "doc-2",
+        documentType: "Government ID / Passport",
+        fileName: "Aadhaar_ID_Proof.pdf",
+        uploadedAt: "2026-06-01"
+      }
+    ],
+    submittedAt: "2026-06-01",
+    reviewedAt: "2026-06-02",
+    reviewedBy: "Admin Governance Board",
+    reviewNotes: "Credentials verified with UP Medical Council registry. All documents valid.",
+    createdAt: "2026-06-01",
+    updatedAt: "2026-06-02"
+  },
+  {
+    id: "verif-shambhavi",
+    providerId: "dr-shambhavi-mishra",
+    providerName: "Dr. Shambhavi Mishra",
+    requestedByUid: "doc-owner-shambhavi",
+    providerType: ProviderType.DOCTOR,
+    status: "VERIFIED",
+    credentialData: {
+      fullName: "Shambhavi Mishra",
+      medicalRegistrationNumber: "UPMC-89547",
+      registrationAuthority: "UP Medical Council",
+      registrationYear: "2014",
+      qualification: "MS (Obstetrics & Gynecology)",
+      specialization: "Gynecology & Infertility"
+    },
+    documentReferences: [
+      {
+        id: "doc-3",
+        documentType: "Medical Council Degree & Registration",
+        documentNumber: "UPMC-89547",
+        fileName: "UPMC_Degree_Certificate.pdf",
+        uploadedAt: "2026-06-05"
+      }
+    ],
+    submittedAt: "2026-06-05",
+    reviewedAt: "2026-06-06",
+    reviewedBy: "Admin Governance Board",
+    reviewNotes: "Verified with State Medical Council directory.",
+    createdAt: "2026-06-05",
+    updatedAt: "2026-06-06"
+  },
+  {
+    id: "verif-gomti-clinic",
+    providerId: "gomti-nagar-multispecialty-clinic",
+    providerName: "Gomti Nagar Multispecialty Clinic",
+    requestedByUid: "clinic-owner-gomti",
+    providerType: ProviderType.CLINIC,
+    status: "VERIFICATION_PENDING",
+    credentialData: {
+      legalBusinessName: "Gomti Nagar Health LLP",
+      licenseNumber: "REG-CLN-88219",
+      responsibleOfficer: "Dr. R. K. Srivastava (Medical Superintendent)",
+      ownershipType: "Private LLP Practice",
+      addressDetails: "CP-4, Viraj Khand, Gomti Nagar, Lucknow"
+    },
+    documentReferences: [
+      {
+        id: "doc-4",
+        documentType: "Clinical Establishment Registration",
+        documentNumber: "REG-CLN-88219",
+        fileName: "Clinical_Establishment_License_2026.pdf",
+        uploadedAt: "2026-08-01"
+      }
+    ],
+    submittedAt: "2026-08-01",
+    createdAt: "2026-08-01",
+    updatedAt: "2026-08-01"
+  }
+];
+
+export const INITIAL_AUDIT_LOGS: AuditLog[] = [
+  {
+    id: "audit-1",
+    actorUid: "admin-uid-1",
+    actorName: "System Governance Desk",
+    actorRole: "admin",
+    action: "VERIFICATION_APPROVED",
+    entityType: "verification",
+    entityId: "verif-anand-verma",
+    timestamp: "2026-06-02T10:15:00Z",
+    details: "Approved verification request for Dr. Anand Verma after verifying UP Medical Council reg MCI-45892."
+  },
+  {
+    id: "audit-2",
+    actorUid: "admin-uid-1",
+    actorName: "System Governance Desk",
+    actorRole: "admin",
+    action: "VERIFICATION_APPROVED",
+    entityType: "verification",
+    entityId: "verif-shambhavi",
+    timestamp: "2026-06-06T14:30:00Z",
+    details: "Approved verification request for Dr. Shambhavi Mishra (UPMC-89547)."
+  },
+  {
+    id: "audit-3",
+    actorUid: "clinic-owner-gomti",
+    actorName: "Gomti Nagar Clinic Admin",
+    actorRole: "clinic",
+    action: "VERIFICATION_SUBMITTED",
+    entityType: "verification",
+    entityId: "verif-gomti-clinic",
+    timestamp: "2026-08-01T09:00:00Z",
+    details: "Submitted clinical establishment registration documents for verification."
   }
 ];
